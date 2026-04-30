@@ -1,12 +1,10 @@
 {
   "name": "treasurescan-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "express": "^4.18.2",
-    "@anthropic-ai/sdk": "^0.20.0"
+    "@anthropic-ai/sdk": "^0.24.0"
   }
 }
