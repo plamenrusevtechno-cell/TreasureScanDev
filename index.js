@@ -1,4 +1,5 @@
-// v183 — Haiku за single scan (10x по-евтино), Opus за multi scan
+// v184 — Haiku за single scan (10x по-евтино), Opus за multi scan 30.04.26 13:55
+// v183 — Haiku за single scan (10x по-евтино), Opus за multi scan  01.05.26 Multiscan error
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -50,7 +51,7 @@ If NOT a coin: {"is_coin": false}
 If coin:
 {
   "is_coin": true,
-  "name": "Full coin name in ${selectedLang}",
+  "name": "Full coin name including subject/design (e.g. '2 Euro Monaco - Princess Grace Kelly 2007', not just '2 Euro Monaco'). In ${selectedLang}.",
   "rarity_score": 1-5,
   "condition_score": 1-5,
   "details": {
@@ -122,7 +123,6 @@ app.post('/analyze-multiple', async (req, res) => {
     const response = await client.messages.create({
       model: 'claude-opus-4-5',
       max_tokens: 4000,
-      timeout: 120000,
       messages: [{
         role: 'user',
         content: [
