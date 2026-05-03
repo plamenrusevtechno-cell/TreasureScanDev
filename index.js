@@ -1,5 +1,4 @@
-// v184 — Haiku за single scan (10x по-евтино), Opus за multi scan 30.04.26 13:55
-// v183 — Haiku за single scan (10x по-евтино), Opus за multi scan  01.05.26 Multiscan error
+// v185 — OCR priority fix: text on coin overrides visual similarity
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -28,7 +27,7 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v183', version: 'v183' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v185', version: 'v185' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -46,6 +45,35 @@ app.post('/analyze', async (req, res) => {
       text: `CRITICAL: Respond ONLY in ${selectedLang}. ALL text fields in ${selectedLang}.
 Return ONLY valid JSON without markdown.
 
+IDENTIFICATION RULES — follow in this exact order:
+1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
+2. DETECT the year from the coin surface
+3. DETECT the country from text on coin (e.g. LETZEBUERG=Luxembourg, HELVETIA=Switzerland, BUNDESREPUBLIK=Germany)
+4. MATCH the visual design to the country text — text ALWAYS overrides visual similarity
+5. If confidence is low, prefer the country written on the coin over visual guessing
+
+COUNTRY TEXT DICTIONARY (use these to identify):
+LETZEBUERG / LUXEMBURG = Luxembourg
+HELVETIA / CONFOEDERATIO HELVETICA = Switzerland  
+BUNDESREPUBLIK DEUTSCHLAND = Germany
+REPUBLIQUE FRANÇAISE / RF = France
+ITALIA / REPUBBLICA ITALIANA = Italy
+ESPAÑA = Spain
+NEDERLAND = Netherlands
+ÖSTERREICH = Austria
+BELGIQUE / BELGIË = Belgium
+EIRE = Ireland
+SUOMI / FINLAND = Finland
+PORTUGUESA = Portugal
+ΕΛΛΑΔΑ / HELLAS = Greece
+ΚΥΠΡΟΣ / KIBRIS = Cyprus
+MALTA = Malta
+SLOVENIJA = Slovenia
+SLOVENSKO = Slovakia
+EESTI = Estonia
+LATVIJA = Latvia
+LIETUVA = Lithuania
+
 If NOT a coin: {"is_coin": false}
 
 If coin:
@@ -54,6 +82,7 @@ If coin:
   "name": "Full coin name including subject/design (e.g. '2 Euro Monaco - Princess Grace Kelly 2007', not just '2 Euro Monaco'). In ${selectedLang}.",
   "rarity_score": 1-5,
   "condition_score": 1-5,
+  "confidence": 1-5,
   "details": {
     "country": "Country in ${selectedLang}",
     "year": "Year or period",
@@ -70,8 +99,10 @@ If coin:
 
 rarity_score: 1=common(millions), 2=frequent(100k+), 3=interesting(limited/commemorative), 4=rare(<100k/silver/gold/error), 5=legendary(<10k)
 condition_score: 1=poor, 2=worn, 3=good, 4=very good, 5=uncirculated
+confidence: 1=very uncertain, 3=moderate, 5=very certain
 Do NOT include any price or monetary value.
-${bothSides ? 'Analyze BOTH sides.' : ''}`
+NEVER assign a country based only on visual similarity — always prioritize text on the coin.
+${bothSides ? 'Analyze BOTH sides for maximum accuracy.' : ''}`
     });
 
     // ✅ v183 — Haiku за single scan (10x по-евтино)
@@ -100,6 +131,7 @@ ${bothSides ? 'Analyze BOTH sides.' : ''}`
     const result = {
       id, name: coinData.name, rarity_score: rarity, condition_score: condition,
       score: calcScore(rarity, condition), is_rare: rarity >= 4,
+      confidence: Math.min(5, Math.max(1, coinData.confidence || 3)),
       details: coinData.details || {}, deep: coinData.deep || {},
       both_sides_analyzed: bothSides || false, response_language: language
     };
