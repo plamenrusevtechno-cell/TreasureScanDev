@@ -45,7 +45,11 @@ app.post('/analyze', async (req, res) => {
       text: `CRITICAL: Respond ONLY in ${selectedLang}. ALL text fields in ${selectedLang}.
 Return ONLY valid JSON without markdown.
 
-IDENTIFICATION RULES — follow in this exact order:
+FIRST CHECK — before anything else:
+If the image shows a SCREEN, MONITOR, PHONE DISPLAY, SCREENSHOT, or PHOTO OF A PHOTO — return:
+{"is_coin": false, "reason": "screen"}
+
+Only proceed if you see a REAL PHYSICAL COIN directly photographed.
 1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
 2. DETECT the year from the coin surface
 3. DETECT the country from text on coin (e.g. LETZEBUERG=Luxembourg, HELVETIA=Switzerland, BUNDESREPUBLIK=Germany)
