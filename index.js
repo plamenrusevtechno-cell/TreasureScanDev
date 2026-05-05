@@ -27,7 +27,7 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v186', version: 'v186' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v187', version: 'v187' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -59,10 +59,11 @@ Only proceed if you see a REAL PHYSICAL COIN that is CLEARLY PHOTOGRAPHED and yo
 
 IDENTIFICATION RULES — follow in this exact order:
 1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
-2. DETECT the year from the coin surface
+2. DETECT the year — READ IT DIRECTLY from the coin surface. Do NOT guess or estimate. If you see "2001" on the coin, the year IS 2001, not 1999 or 2002.
 3. DETECT the country from text on coin (e.g. LETZEBUERG=Luxembourg, HELVETIA=Switzerland, BUNDESREPUBLIK=Germany)
 4. MATCH the visual design to the country text — text ALWAYS overrides visual similarity
 5. If confidence is low (below 3/5) — return uncertain instead of guessing
+6. YEAR RULE: Always report the exact year you can read on the coin. Never substitute with a similar year.
 
 COUNTRY TEXT DICTIONARY (use these to identify):
 LETZEBUERG / LUXEMBURG = Luxembourg
@@ -249,13 +250,29 @@ Do NOT include price or monetary value. ALL text in ${selectedLang}.`
 app.post('/validate-code', (req, res) => {
   const { code } = req.body;
   const input = (code || '').trim().toUpperCase();
+
+  // ── Стандартни premium кодове (от environment variables) ──
   const CODE_1D  = process.env.CODE_1D  || 'TREASURE1D';
   const CODE_7D  = process.env.CODE_7D  || 'TREASURE7D';
   const CODE_30D = process.env.CODE_30D || 'TREASURE30D';
-  if (input === CODE_1D)  return res.json({ valid: true, days: 1 });
-  if (input === CODE_7D)  return res.json({ valid: true, days: 7 });
-  if (input === CODE_30D) return res.json({ valid: true, days: 30 });
-  res.json({ valid: false, days: 0 });
+  if (input === CODE_1D)  return res.json({ valid: true, type: 'premium', days: 1 });
+  if (input === CODE_7D)  return res.json({ valid: true, type: 'premium', days: 7 });
+  if (input === CODE_30D) return res.json({ valid: true, type: 'premium', days: 30 });
+
+  // ── Creator cheat кодове (от environment variables) ────────
+  const KRIS777    = process.env.CODE_KRIS777    || 'KRIS777';
+  const TREASUREGOD = process.env.CODE_TREASUREGOD || 'TREASUREGOD';
+  const BADGEKING  = process.env.CODE_BADGEKING  || 'BADGEKING';
+  const GRACEKELLY = process.env.CODE_GRACEKELLY || 'GRACEKELLY';
+  const KRIS2014   = process.env.CODE_KRIS2014   || 'KRIS2014';
+
+  if (input === KRIS777)     return res.json({ valid: true, type: 'scans',    amount: 500 });
+  if (input === TREASUREGOD) return res.json({ valid: true, type: 'godmode',  xp: 5000, level: 50 });
+  if (input === BADGEKING)   return res.json({ valid: true, type: 'badges',   count: 20 });
+  if (input === GRACEKELLY)  return res.json({ valid: true, type: 'legendary' });
+  if (input === KRIS2014)    return res.json({ valid: true, type: 'family',   scans: 500, xp: 5000, level: 50, days: 30 });
+
+  res.json({ valid: false, type: 'invalid' });
 });
 
 const PORT = process.env.PORT || 3000;
