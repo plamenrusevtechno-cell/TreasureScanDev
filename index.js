@@ -27,7 +27,7 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v185', version: 'v185' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v186', version: 'v186' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -46,15 +46,23 @@ app.post('/analyze', async (req, res) => {
 Return ONLY valid JSON without markdown.
 
 FIRST CHECK — before anything else:
-If the image shows a SCREEN, MONITOR, PHONE DISPLAY, SCREENSHOT, or PHOTO OF A PHOTO — return:
+1. If the image shows a SCREEN, MONITOR, PHONE DISPLAY, SCREENSHOT, or PHOTO OF A PHOTO — return:
 {"is_coin": false, "reason": "screen"}
 
-Only proceed if you see a REAL PHYSICAL COIN directly photographed.
+2. If the image is TOO BLURRY, TOO DARK, TOO CLOSE, OVEREXPOSED, or the coin is NOT CLEARLY VISIBLE — return:
+{"is_coin": false, "reason": "unclear"}
+
+3. If you CANNOT IDENTIFY the coin with at least 60% confidence — return:
+{"is_coin": false, "reason": "uncertain"}
+
+Only proceed if you see a REAL PHYSICAL COIN that is CLEARLY PHOTOGRAPHED and you are CONFIDENT in the identification.
+
+IDENTIFICATION RULES — follow in this exact order:
 1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
 2. DETECT the year from the coin surface
 3. DETECT the country from text on coin (e.g. LETZEBUERG=Luxembourg, HELVETIA=Switzerland, BUNDESREPUBLIK=Germany)
 4. MATCH the visual design to the country text — text ALWAYS overrides visual similarity
-5. If confidence is low, prefer the country written on the coin over visual guessing
+5. If confidence is low (below 3/5) — return uncertain instead of guessing
 
 COUNTRY TEXT DICTIONARY (use these to identify):
 LETZEBUERG / LUXEMBURG = Luxembourg
@@ -78,7 +86,7 @@ EESTI = Estonia
 LATVIJA = Latvia
 LIETUVA = Lithuania
 
-If NOT a coin: {"is_coin": false}
+If NOT a coin: {"is_coin": false, "reason": "not_coin"}
 
 If coin:
 {
@@ -106,6 +114,7 @@ condition_score: 1=poor, 2=worn, 3=good, 4=very good, 5=uncirculated
 confidence: 1=very uncertain, 3=moderate, 5=very certain
 Do NOT include any price or monetary value.
 NEVER assign a country based only on visual similarity — always prioritize text on the coin.
+NEVER guess if not confident — return uncertain instead.
 ${bothSides ? 'Analyze BOTH sides for maximum accuracy.' : ''}`
     });
 
@@ -125,7 +134,7 @@ ${bothSides ? 'Analyze BOTH sides for maximum accuracy.' : ''}`
     }
 
     if (!coinData.is_coin) {
-      return res.json({ success: true, data: { is_coin: false } });
+      return res.json({ success: true, data: { is_coin: false, reason: coinData.reason || 'not_coin' } });
     }
 
     const rarity    = Math.min(5, Math.max(1, coinData.rarity_score    || 1));
