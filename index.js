@@ -1,4 +1,4 @@
-// v189 — OCR priority fix: text on coin overrides visual similarity
+// v193 — Google Vision API integration: OCR + Web Detection → Claude formats only
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json({ limit: '20mb' }));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
+const GOOGLE_VISION_KEY = process.env.GOOGLE_VISION_KEY;
 
 const LANG_MAP = { en: 'English', bg: 'Bulgarian', tr: 'Turkish', ru: 'Russian' };
 
@@ -27,8 +28,49 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-// v192 — Complete Bulgaria euro 2026 database with all denominations
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v192', version: 'v192' }));
+// ── Google Vision API call ────────────────────────────────────────────────────
+async function callGoogleVision(imageBase64) {
+  if (!GOOGLE_VISION_KEY) return null;
+
+  try {
+    const response = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{
+            image: { content: imageBase64 },
+            features: [
+              { type: 'TEXT_DETECTION' },
+              { type: 'WEB_DETECTION', maxResults: 10 }
+            ]
+          }]
+        })
+      }
+    );
+
+    const data = await response.json();
+    const result = data.responses?.[0];
+    if (!result) return null;
+
+    const ocrText = result.fullTextAnnotation?.text || '';
+    const webEntities = result.webDetection?.webEntities || [];
+    const webLabels = webEntities
+      .filter(e => e.score > 0.5)
+      .map(e => e.description)
+      .filter(Boolean)
+      .slice(0, 8);
+    const bestGuess = result.webDetection?.bestGuessLabels?.[0]?.label || '';
+
+    return { ocrText, webLabels, bestGuess };
+  } catch (err) {
+    console.error('Google Vision error:', err.message);
+    return null;
+  }
+}
+
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v193', version: 'v193' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -36,113 +78,96 @@ app.post('/analyze', async (req, res) => {
     if (!imageBase64) return res.status(400).json({ error: 'Missing imageBase64' });
 
     const selectedLang = getLang(language);
+
+    // ── СЛОЙ 1: Google Vision (OCR + Web Detection) ───────────────────────────
+    const visionData = await callGoogleVision(imageBase64);
+
+    // ── СЛОЙ 2: Провери за screen/multiple от Vision текст ───────────────────
+    if (visionData) {
+      const ocrLower = visionData.ocrText.toLowerCase();
+      // Ако Vision не намери нищо смислено → uncertain
+      if (!visionData.ocrText && visionData.webLabels.length === 0) {
+        return res.json({ success: true, data: { is_coin: false, reason: 'unclear' } });
+      }
+    }
+
+    // ── СЛОЙ 3: Claude — само форматира, не разпознава ───────────────────────
     const userContent = [];
-    userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
-    if (bothSides && backImageBase64) {
+
+    // Добавяме снимката само ако нямаме Vision данни (fallback)
+    if (!visionData || (!visionData.ocrText && visionData.webLabels.length === 0)) {
+      userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+    }
+
+    if (bothSides && backImageBase64 && !visionData) {
       userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: backImageBase64 } });
     }
-    userContent.push({
-      type: 'text',
-      text: `CRITICAL: Respond ONLY in ${selectedLang}. ALL text fields in ${selectedLang}.
-Return ONLY valid JSON without markdown.
 
-FIRST CHECK — before anything else:
-1. If the image CLEARLY shows a phone/computer SCREEN with UI elements, app interface, or browser — return:
-{"is_coin": false, "reason": "screen"}
-IMPORTANT: Photos of coins on white background, catalog images, or coins held in hand are NOT screens. Only return "screen" if you clearly see a digital display with UI.
+    // Изграждаме промпта с Vision данни
+    let prompt;
+    if (visionData && (visionData.ocrText || visionData.webLabels.length > 0)) {
+      // ✅ НОВА АРХИТЕКТУРА — Claude получава факти, не гадае
+      prompt = `CRITICAL: Respond ONLY in ${selectedLang}. Return ONLY valid JSON without markdown.
 
-2. If the image contains MULTIPLE COINS (2 or more coins clearly visible as separate coins) — return:
-{"is_coin": false, "reason": "multiple"}
+You are given VERIFIED FACTS from Google Vision API about a coin image.
+DO NOT guess. DO NOT hallucinate. Use ONLY the data provided below.
 
-3. If the image is SO BLURRY or DARK that the coin is completely unrecognizable — return:
-{"is_coin": false, "reason": "unclear"}
-IMPORTANT: Slightly imperfect, tilted, or partially lit photos are acceptable. Only return "unclear" if truly impossible to identify.
+VERIFIED OCR TEXT FROM COIN: "${visionData.ocrText.replace(/\n/g, ' ').trim()}"
+VERIFIED WEB LABELS: ${visionData.webLabels.join(', ')}
+BEST GUESS FROM WEB: "${visionData.bestGuess}"
 
-4. If you CANNOT IDENTIFY the coin with at least 50% confidence — return:
-{"is_coin": false, "reason": "uncertain"}
+TASK: Based on these verified facts, identify the coin and return structured JSON.
 
-Only proceed if you see ONE SINGLE REAL PHYSICAL COIN.
+If the data clearly shows a coin, return:
+{
+  "is_coin": true,
+  "name": "Full coin name in ${selectedLang} (e.g. '50 евро цента Германия 2002')",
+  "rarity_score": 1-5,
+  "condition_score": 3,
+  "confidence": 1-5,
+  "details": {
+    "country": "Country in ${selectedLang}",
+    "year": "Year extracted from OCR or web data",
+    "metal": "Metal type in ${selectedLang}",
+    "nominal": "Face value",
+    "history": "2-3 interesting sentences in ${selectedLang}"
+  },
+  "deep": {
+    "fun_fact": "One fact in ${selectedLang}",
+    "collector_note": "Collector insight in ${selectedLang}",
+    "mintage": ""
+  }
+}
 
-IDENTIFICATION RULES — follow in this exact order:
-1. READ ALL TEXT visible on the coin FIRST — this is the most important step
-2. DETECT the year — READ IT DIRECTLY from the coin. If you see "2026" written on the coin, the year IS 2026. NEVER substitute with another year.
-3. DETECT the person/subject name if written on the coin (e.g. "KONRAD ADENAUER", "GRACE KELLY", "BEETHOVEN")
-4. DETECT the country from text (e.g. BUNDESREPUBLIK DEUTSCHLAND = Germany, not Austria)
-5. TEXT ALWAYS OVERRIDES visual similarity — if coin says "KONRAD ADENAUER" it CANNOT be "Johann Strauss"
-6. If confidence is below 3/5 — return uncertain
+If data is insufficient or not a coin: {"is_coin": false, "reason": "unclear"}
 
-AUTO-FILTER RULES (prevent absurd results):
-- If coin has EURO stars ring → it is a Euro coin (NOT ancient/medieval)
-- If coin shows year > 1900 → it CANNOT be ancient, medieval, or Roman
-- If coin text says a specific person's name → use THAT person, not a visually similar coin
-- If coin is bimetallic (two metals/colors) → it is likely 1€ or 2€ modern coin
+RULES:
+- If OCR shows "DEUTSCHLAND" or web labels say "Germany" → country is Germany
+- If OCR shows "БЪЛГАРИЯ" → country is Bulgaria
+- Use the YEAR from OCR text directly — never substitute
+- rarity: 1=millions, 2=common, 3=interesting, 4=rare, 5=legendary
+- confidence: 1=very uncertain, 3=moderate, 5=very certain`;
+    } else {
+      // FALLBACK — Vision недостъпен, използваме стария подход с изображение
+      userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+      prompt = `CRITICAL: Respond ONLY in ${selectedLang}. Return ONLY valid JSON without markdown.
 
-BULGARIA EURO COINS 2026 (CRITICAL — these are NEW coins not in training data):
-Bulgaria adopted the euro on 1 January 2026. ALL Bulgarian euro coins show "БЪЛГАРИЯ" in Cyrillic and "2026".
-- 1 евро цент / стотинка — Мадарски конник, жълт цвят
-- 2 евро цента / стотинки — Мадарски конник, жълт цвят
-- 5 евро цента / стотинки — Мадарски конник, жълт цвят
-- 10 евро цента / стотинки — Мадарски конник, сребрист цвят
-- 20 евро цента / стотинки — Мадарски конник, сребрист цвят
-- 50 евро цента / стотинки — Мадарски конник, сребрист цвят
-- 1 евро България 2026 — Св. Иван Рилски (мъж с брада и расо, ореол)
-- 2 евро България 2026 — Паисий Хилендарски (монах с книга), надпис по гурта "БОЖЕ ПАЗИ БЪЛГАРИЯ"
-
-RULE: If you see БЪЛГАРИЯ + ЕВРО + 2026 → it is a Bulgarian Euro coin. Do NOT confuse with Greek, Austrian or any other euro coin!
-LETZEBUERG / LUXEMBURG = Luxembourg
-HELVETIA / CONFOEDERATIO HELVETICA = Switzerland  
-BUNDESREPUBLIK DEUTSCHLAND = Germany
-REPUBLIQUE FRANÇAISE / RF = France
-ITALIA / REPUBBLICA ITALIANA = Italy
-ESPAÑA = Spain
-NEDERLAND = Netherlands
-ÖSTERREICH = Austria
-BELGIQUE / BELGIË = Belgium
-EIRE = Ireland
-SUOMI / FINLAND = Finland
-PORTUGUESA = Portugal
-ΕΛΛΑΔΑ / HELLAS = Greece
-ΚΥΠΡΟΣ / KIBRIS = Cyprus
-MALTA = Malta
-SLOVENIJA = Slovenia
-SLOVENSKO = Slovakia
-EESTI = Estonia
-LATVIJA = Latvia
-LIETUVA = Lithuania
-
-If NOT a coin: {"is_coin": false, "reason": "not_coin"}
+Identify this coin. If not a coin or unclear, return {"is_coin": false, "reason": "unclear"}.
 
 If coin:
 {
   "is_coin": true,
-  "name": "Full coin name including subject/design (e.g. '2 Euro Monaco - Princess Grace Kelly 2007', not just '2 Euro Monaco'). In ${selectedLang}.",
+  "name": "Coin name in ${selectedLang}",
   "rarity_score": 1-5,
   "condition_score": 1-5,
   "confidence": 1-5,
-  "details": {
-    "country": "Country in ${selectedLang}",
-    "year": "Year or period",
-    "metal": "Metal in ${selectedLang}",
-    "nominal": "Nominal value",
-    "history": "2-3 interesting sentences in ${selectedLang}. Include mintage if known."
-  },
-  "deep": {
-    "fun_fact": "One surprising fact in ${selectedLang}",
-    "collector_note": "Brief collector insight in ${selectedLang}",
-    "mintage": "Approximate mintage if known, else empty string"
-  }
-}
+  "details": {"country": "", "year": "", "metal": "", "nominal": "", "history": ""},
+  "deep": {"fun_fact": "", "collector_note": "", "mintage": ""}
+}`;
+    }
 
-rarity_score: 1=common(millions), 2=frequent(100k+), 3=interesting(limited/commemorative), 4=rare(<100k/silver/gold/error), 5=legendary(<10k)
-condition_score: 1=poor, 2=worn, 3=good, 4=very good, 5=uncirculated
-confidence: 1=very uncertain, 3=moderate, 5=very certain
-Do NOT include any price or monetary value.
-NEVER assign a country based only on visual similarity — always prioritize text on the coin.
-NEVER guess if not confident — return uncertain instead.
-${bothSides ? 'Analyze BOTH sides for maximum accuracy.' : ''}`
-    });
+    userContent.push({ type: 'text', text: prompt });
 
-    // ✅ v183 — Haiku за single scan (10x по-евтино)
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1000,
@@ -170,7 +195,8 @@ ${bothSides ? 'Analyze BOTH sides for maximum accuracy.' : ''}`
       score: calcScore(rarity, condition), is_rare: rarity >= 4,
       confidence: Math.min(5, Math.max(1, coinData.confidence || 3)),
       details: coinData.details || {}, deep: coinData.deep || {},
-      both_sides_analyzed: bothSides || false, response_language: language
+      both_sides_analyzed: bothSides || false, response_language: language,
+      vision_used: !!visionData  // debug flag
     };
 
     res.json({ success: true, data: result, top: [result], bulk: [] });
