@@ -27,7 +27,8 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v187', version: 'v187' }));
+// v188 — Fix screen detection агресивност, по-добра unclear логика
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v188', version: 'v188' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -46,16 +47,21 @@ app.post('/analyze', async (req, res) => {
 Return ONLY valid JSON without markdown.
 
 FIRST CHECK — before anything else:
-1. If the image shows a SCREEN, MONITOR, PHONE DISPLAY, SCREENSHOT, or PHOTO OF A PHOTO — return:
+1. If the image CLEARLY shows a phone/computer SCREEN with UI elements, app interface, or browser — return:
 {"is_coin": false, "reason": "screen"}
+IMPORTANT: Photos of coins on white background, catalog images, or coins held in hand are NOT screens. Only return "screen" if you clearly see a digital display with UI.
 
-2. If the image is TOO BLURRY, TOO DARK, TOO CLOSE, OVEREXPOSED, or the coin is NOT CLEARLY VISIBLE — return:
+2. If the image contains MULTIPLE COINS (2 or more coins clearly visible as separate coins) — return:
+{"is_coin": false, "reason": "multiple"}
+
+3. If the image is SO BLURRY or DARK that the coin is completely unrecognizable — return:
 {"is_coin": false, "reason": "unclear"}
+IMPORTANT: Slightly imperfect, tilted, or partially lit photos are acceptable. Only return "unclear" if truly impossible to identify.
 
-3. If you CANNOT IDENTIFY the coin with at least 60% confidence — return:
+4. If you CANNOT IDENTIFY the coin with at least 50% confidence — return:
 {"is_coin": false, "reason": "uncertain"}
 
-Only proceed if you see a REAL PHYSICAL COIN that is CLEARLY PHOTOGRAPHED and you are CONFIDENT in the identification.
+Only proceed if you see ONE SINGLE REAL PHYSICAL COIN.
 
 IDENTIFICATION RULES — follow in this exact order:
 1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
@@ -176,7 +182,10 @@ app.post('/analyze-multiple', async (req, res) => {
           {
             type: 'text',
             text: `CRITICAL: Respond ONLY in ${selectedLang}. ALL text in ${selectedLang}.
-Analyze ALL coins. Return ONLY valid JSON array without markdown.
+
+FIRST CHECK: If the image shows a SCREEN, PHONE DISPLAY, or SCREENSHOT — return: []
+
+Analyze ALL physical coins visible. Return ONLY valid JSON array without markdown.
 
 [{
   "name": "Coin name in ${selectedLang}",
