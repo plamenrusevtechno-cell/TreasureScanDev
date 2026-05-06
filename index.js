@@ -1,4 +1,4 @@
-// v185 — OCR priority fix: text on coin overrides visual similarity
+// v189 — OCR priority fix: text on coin overrides visual similarity
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -27,8 +27,8 @@ function stableId(coin, fallback) {
   return id || fallback;
 }
 
-// v188 — Fix screen detection агресивност, по-добра unclear логика
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v188', version: 'v188' }));
+// v192 — Complete Bulgaria euro 2026 database with all denominations
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v192', version: 'v192' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -64,14 +64,31 @@ IMPORTANT: Slightly imperfect, tilted, or partially lit photos are acceptable. O
 Only proceed if you see ONE SINGLE REAL PHYSICAL COIN.
 
 IDENTIFICATION RULES — follow in this exact order:
-1. READ ALL TEXT visible on the coin first (country name, inscriptions, mint marks)
-2. DETECT the year — READ IT DIRECTLY from the coin surface. Do NOT guess or estimate. If you see "2001" on the coin, the year IS 2001, not 1999 or 2002.
-3. DETECT the country from text on coin (e.g. LETZEBUERG=Luxembourg, HELVETIA=Switzerland, BUNDESREPUBLIK=Germany)
-4. MATCH the visual design to the country text — text ALWAYS overrides visual similarity
-5. If confidence is low (below 3/5) — return uncertain instead of guessing
-6. YEAR RULE: Always report the exact year you can read on the coin. Never substitute with a similar year.
+1. READ ALL TEXT visible on the coin FIRST — this is the most important step
+2. DETECT the year — READ IT DIRECTLY from the coin. If you see "2026" written on the coin, the year IS 2026. NEVER substitute with another year.
+3. DETECT the person/subject name if written on the coin (e.g. "KONRAD ADENAUER", "GRACE KELLY", "BEETHOVEN")
+4. DETECT the country from text (e.g. BUNDESREPUBLIK DEUTSCHLAND = Germany, not Austria)
+5. TEXT ALWAYS OVERRIDES visual similarity — if coin says "KONRAD ADENAUER" it CANNOT be "Johann Strauss"
+6. If confidence is below 3/5 — return uncertain
 
-COUNTRY TEXT DICTIONARY (use these to identify):
+AUTO-FILTER RULES (prevent absurd results):
+- If coin has EURO stars ring → it is a Euro coin (NOT ancient/medieval)
+- If coin shows year > 1900 → it CANNOT be ancient, medieval, or Roman
+- If coin text says a specific person's name → use THAT person, not a visually similar coin
+- If coin is bimetallic (two metals/colors) → it is likely 1€ or 2€ modern coin
+
+BULGARIA EURO COINS 2026 (CRITICAL — these are NEW coins not in training data):
+Bulgaria adopted the euro on 1 January 2026. ALL Bulgarian euro coins show "БЪЛГАРИЯ" in Cyrillic and "2026".
+- 1 евро цент / стотинка — Мадарски конник, жълт цвят
+- 2 евро цента / стотинки — Мадарски конник, жълт цвят
+- 5 евро цента / стотинки — Мадарски конник, жълт цвят
+- 10 евро цента / стотинки — Мадарски конник, сребрист цвят
+- 20 евро цента / стотинки — Мадарски конник, сребрист цвят
+- 50 евро цента / стотинки — Мадарски конник, сребрист цвят
+- 1 евро България 2026 — Св. Иван Рилски (мъж с брада и расо, ореол)
+- 2 евро България 2026 — Паисий Хилендарски (монах с книга), надпис по гурта "БОЖЕ ПАЗИ БЪЛГАРИЯ"
+
+RULE: If you see БЪЛГАРИЯ + ЕВРО + 2026 → it is a Bulgarian Euro coin. Do NOT confuse with Greek, Austrian or any other euro coin!
 LETZEBUERG / LUXEMBURG = Luxembourg
 HELVETIA / CONFOEDERATIO HELVETICA = Switzerland  
 BUNDESREPUBLIK DEUTSCHLAND = Germany
