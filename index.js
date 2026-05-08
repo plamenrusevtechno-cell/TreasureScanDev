@@ -226,8 +226,6 @@ app.post('/analyze-multiple', async (req, res) => {
             type: 'text',
             text: `CRITICAL: Respond ONLY in ${selectedLang}. ALL text in ${selectedLang}.
 
-FIRST CHECK: If the image shows a SCREEN, PHONE DISPLAY, or SCREENSHOT — return: []
-
 Analyze ALL physical coins visible. Return ONLY valid JSON array without markdown.
 
 [{
