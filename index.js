@@ -1,4 +1,4 @@
-// v193 — Google Vision API integration: OCR + Web Detection → Claude formats only
+// v 199.99  — Claude вижда изображението + Vision данни, физически данни в резултата, Sonnet за multi-scan
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -70,7 +70,7 @@ async function callGoogleVision(imageBase64) {
   }
 }
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v193', version: 'v193' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v194', version: 'v194' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -82,77 +82,74 @@ app.post('/analyze', async (req, res) => {
     // ── СЛОЙ 1: Google Vision (OCR + Web Detection) ───────────────────────────
     const visionData = await callGoogleVision(imageBase64);
 
-    // ── СЛОЙ 2: Провери за screen/multiple от Vision текст ───────────────────
-    if (visionData) {
-      const ocrLower = visionData.ocrText.toLowerCase();
-      // Ако Vision не намери нищо смислено → uncertain
-      if (!visionData.ocrText && visionData.webLabels.length === 0) {
-        return res.json({ success: true, data: { is_coin: false, reason: 'unclear' } });
-      }
-    }
+    // ── СЛОЙ 2: Ако Vision не върне нищо — продължаваме с Claude + изображение ─
+    // Не reject-ваме веднага — Claude може да разпознае монетата визуално
 
-    // ── СЛОЙ 3: Claude — само форматира, не разпознава ───────────────────────
+    // ── СЛОЙ 3: Claude — получава и Vision данни И изображението ────────────
     const userContent = [];
 
-    // Добавяме снимката само ако нямаме Vision данни (fallback)
-    if (!visionData || (!visionData.ocrText && visionData.webLabels.length === 0)) {
-      userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
-    }
+    // Винаги изпращаме изображението към Claude
+    userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
 
-    if (bothSides && backImageBase64 && !visionData) {
+    if (bothSides && backImageBase64) {
       userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: backImageBase64 } });
     }
 
     // Изграждаме промпта с Vision данни
     let prompt;
     if (visionData && (visionData.ocrText || visionData.webLabels.length > 0)) {
-      // ✅ НОВА АРХИТЕКТУРА — Claude получава факти, не гадае
       prompt = `CRITICAL: Respond ONLY in ${selectedLang}. Return ONLY valid JSON without markdown.
 
-You are given VERIFIED FACTS from Google Vision API about a coin image.
-DO NOT guess. DO NOT hallucinate. Use ONLY the data provided below.
+You have BOTH the coin image AND verified data from Google Vision API.
+Use the image for visual confirmation and the Vision data for text/web facts.
 
 VERIFIED OCR TEXT FROM COIN: "${visionData.ocrText.replace(/\n/g, ' ').trim()}"
 VERIFIED WEB LABELS: ${visionData.webLabels.join(', ')}
 BEST GUESS FROM WEB: "${visionData.bestGuess}"
 
-TASK: Based on these verified facts, identify the coin and return structured JSON.
+TASK: Identify the coin using both the image and the verified facts above.
 
-If the data clearly shows a coin, return:
+If this is clearly a coin, return:
 {
   "is_coin": true,
   "name": "Full coin name in ${selectedLang} (e.g. '50 евро цента Германия 2002')",
   "rarity_score": 1-5,
-  "condition_score": 3,
+  "condition_score": 1-5,
   "confidence": 1-5,
   "details": {
     "country": "Country in ${selectedLang}",
-    "year": "Year extracted from OCR or web data",
-    "metal": "Metal type in ${selectedLang}",
-    "nominal": "Face value",
-    "history": "2-3 interesting sentences in ${selectedLang}"
+    "year": "Year from OCR or image",
+    "metal": "Metal/composition in ${selectedLang}",
+    "nominal": "Face value with currency symbol",
+    "history": "2-3 interesting sentences in ${selectedLang}",
+    "diameter": "Diameter in mm (e.g. '23.25 mm') or empty string",
+    "weight": "Weight in grams (e.g. '5.74 g') or empty string",
+    "edge": "Edge type in ${selectedLang} (e.g. 'Reeded', 'Plain', 'Lettered') or empty string",
+    "krause": "Krause catalog number (e.g. 'KM#123') or empty string"
   },
   "deep": {
-    "fun_fact": "One fact in ${selectedLang}",
+    "fun_fact": "One interesting fact in ${selectedLang}",
     "collector_note": "Collector insight in ${selectedLang}",
-    "mintage": ""
+    "mintage": "Mintage number if known, or empty string"
   }
 }
 
-If data is insufficient or not a coin: {"is_coin": false, "reason": "unclear"}
+If NOT a coin or completely unclear: {"is_coin": false, "reason": "unclear"}
 
 RULES:
-- If OCR shows "DEUTSCHLAND" or web labels say "Germany" → country is Germany
-- If OCR shows "БЪЛГАРИЯ" → country is Bulgaria
-- Use the YEAR from OCR text directly — never substitute
-- rarity: 1=millions, 2=common, 3=interesting, 4=rare, 5=legendary
-- confidence: 1=very uncertain, 3=moderate, 5=very certain`;
+- Use OCR text + image together for best accuracy
+- If OCR shows "DEUTSCHLAND" → country is Germany; "БЪЛГАРИЯ" → Bulgaria
+- Use the YEAR from OCR text directly
+- condition_score: 1=poor, 2=fair, 3=good, 4=very fine, 5=uncirculated
+- rarity: 1=millions minted, 2=common, 3=interesting, 4=rare, 5=legendary
+- confidence: 1=very uncertain, 3=moderate, 5=very certain
+- For diameter/weight/edge/krause: use known numismatic data if you recognize the coin`;
     } else {
-      // FALLBACK — Vision недостъпен, използваме стария подход с изображение
-      userContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+      // FALLBACK — Vision недостъпен, използваме само изображението
       prompt = `CRITICAL: Respond ONLY in ${selectedLang}. Return ONLY valid JSON without markdown.
 
-Identify this coin. If not a coin or unclear, return {"is_coin": false, "reason": "unclear"}.
+Look at this coin image carefully and identify it.
+If this is not a coin or the image is too unclear, return {"is_coin": false, "reason": "unclear"}.
 
 If coin:
 {
@@ -161,9 +158,26 @@ If coin:
   "rarity_score": 1-5,
   "condition_score": 1-5,
   "confidence": 1-5,
-  "details": {"country": "", "year": "", "metal": "", "nominal": "", "history": ""},
-  "deep": {"fun_fact": "", "collector_note": "", "mintage": ""}
-}`;
+  "details": {
+    "country": "Country in ${selectedLang}",
+    "year": "Year visible on coin",
+    "metal": "Metal type in ${selectedLang}",
+    "nominal": "Face value",
+    "history": "2-3 sentences in ${selectedLang}",
+    "diameter": "Diameter in mm or empty string",
+    "weight": "Weight in grams or empty string",
+    "edge": "Edge type in ${selectedLang} or empty string",
+    "krause": "Krause number or empty string"
+  },
+  "deep": {
+    "fun_fact": "One fact in ${selectedLang}",
+    "collector_note": "Collector insight in ${selectedLang}",
+    "mintage": "Mintage or empty string"
+  }
+}
+
+condition_score: 1=poor, 2=fair, 3=good, 4=very fine, 5=uncirculated
+rarity: 1=millions, 2=common, 3=interesting, 4=rare, 5=legendary`;
     }
 
     userContent.push({ type: 'text', text: prompt });
@@ -214,9 +228,9 @@ app.post('/analyze-multiple', async (req, res) => {
 
     const selectedLang = getLang(language);
 
-    // ✅ v183 — Opus остава за multi scan (по-сложен анализ)
+    // Sonnet е достатъчен за multi-scan и е значително по-бърз от Opus
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4000,
       messages: [{
         role: 'user',
