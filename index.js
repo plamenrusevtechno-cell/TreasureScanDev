@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v200
+// TreasureScan Backend — v201
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -31,6 +31,24 @@ try {
   console.log(`Legendary coins loaded: ${legendaryCoins.length}`);
 } catch (e) {
   console.warn('legendary_coins.json not found:', e.message);
+}
+
+// Verified coins database — indexed by canonical_key за O(1) lookup
+let verifiedCoinsIndex = {};
+let verifiedCoinsCount = 0;
+try {
+  const raw = fs.readFileSync(path.join(__dirname, 'coins_verified.json'), 'utf-8');
+  const data = JSON.parse(raw);
+  const coins = data.coins || [];
+  // Индексираме по canonical_key И по id
+  for (const coin of coins) {
+    if (coin.canonical_key) verifiedCoinsIndex[coin.canonical_key] = coin;
+    if (coin.id) verifiedCoinsIndex[coin.id] = coin;
+  }
+  verifiedCoinsCount = coins.length;
+  console.log(`Verified coins loaded: ${verifiedCoinsCount} (index size: ${Object.keys(verifiedCoinsIndex).length})`);
+} catch (e) {
+  console.warn('coins_verified.json not found:', e.message);
 }
 
 // ── Normalized fingerprint ────────────────────────────────────
@@ -76,6 +94,56 @@ function matchLegendary(coinName) {
     if (score > bestScore && score >= 5) { bestScore = score; best = coin; }
   }
   return best;
+}
+
+// ── Verified coins lookup ─────────────────────────────────────
+// Приоритет: canonical_key → id → keyword match
+function lookupVerified(country, nominal, year, coinName) {
+  if (!verifiedCoinsCount) return null;
+
+  // 1. Canonical key lookup (най-точен)
+  const fingerprint = normalizeFingerprint(country, nominal, year);
+  const nomKey = getNominalKey(nominal);
+
+  // Опитваме различни формати на canonical key
+  const candidates = [
+    fingerprint,
+    `eu_${fingerprint}`,
+    `bg_${fingerprint}`,
+  ];
+
+  for (const key of candidates) {
+    if (verifiedCoinsIndex[key]) return verifiedCoinsIndex[key];
+  }
+
+  // 2. Partial match по country + nominal + year
+  const countryNorm = (country || '').toLowerCase()
+    .replace(/българия|bulgaria/i, 'bg')
+    .replace(/германия|germany/i, 'de')
+    .replace(/белгия|belgium/i, 'be')
+    .replace(/монако|monaco/i, 'mc')
+    .replace(/франция|france/i, 'fr')
+    .replace(/австрия|austria/i, 'at')
+    .replace(/холандия|netherlands/i, 'nl')
+    .replace(/испания|spain/i, 'es')
+    .replace(/италия|italy/i, 'it')
+    .replace(/португалия|portugal/i, 'pt')
+    .replace(/финландия|finland/i, 'fi')
+    .replace(/гърция|greece/i, 'gr')
+    .replace(/\s+/g, '');
+
+  const nomNorm = getNominalKey(nominal).replace('_', '');
+  const yearStr = (year || '').toString();
+
+  // Опитваме директен key по country + nominal + year
+  const directKey = `${countryNorm}_${nomNorm}_${yearStr}`;
+  if (verifiedCoinsIndex[directKey]) return verifiedCoinsIndex[directKey];
+
+  // eu_ prefix
+  const euKey = `eu_${countryNorm}_${nomNorm}_${yearStr}`;
+  if (verifiedCoinsIndex[euKey]) return verifiedCoinsIndex[euKey];
+
+  return null;
 }
 
 // ── Hard caps по номинал ──────────────────────────────────────
@@ -190,7 +258,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v200', version: 'v200' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v201', version: 'v201' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -281,15 +349,24 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
 
     // DB lookup
     const legendary  = matchLegendary(coinData.name);
+    const verified   = !legendary ? lookupVerified(country, nominal, year, coinData.name) : null;
     const fingerprint = normalizeFingerprint(country, nominal, year);
     const nomKey     = getNominalKey(nominal);
     const caps       = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
 
-    // Market valuation
+    // Market valuation — приоритет: legendary → verified → ai_capped
     let market, valueSource;
     if (legendary) {
       market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high };
       valueSource = 'legendary_verified';
+    } else if (verified) {
+      // Верифициран запис от coins_verified.json
+      market = {
+        low: verified.market.low,
+        avg: verified.market.avg,
+        high: verified.market.high
+      };
+      valueSource = 'verified_database';
     } else if (identConf <= 2) {
       market = { low: 0, avg: 0, high: 0 };
       valueSource = 'uncertain';
@@ -319,7 +396,7 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
         identity: confidences.identity,
         match: confidences.match,
         value: confidences.value,
-        label: valueSource === 'legendary_verified' ? 'verified' :
+        label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' :
                valueSource === 'uncertain' ? 'uncertain' :
                confidences.value >= 75 ? 'estimated' : 'low_confidence'
       },
@@ -395,6 +472,7 @@ Most coins are 1-2. Be CONSERVATIVE.` }
       const key       = `${(coin.name || '').toLowerCase()}_${year}`;
 
       const legendary   = matchLegendary(coin.name);
+      const verified    = !legendary ? lookupVerified(country, nominal, year, coin.name) : null;
       const fingerprint = normalizeFingerprint(country, nominal, year);
       const nomKey      = getNominalKey(nominal);
       const caps        = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
@@ -403,6 +481,9 @@ Most coins are 1-2. Be CONSERVATIVE.` }
       if (legendary) {
         market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high };
         valueSource = 'legendary_verified';
+      } else if (verified) {
+        market = { low: verified.market.low, avg: verified.market.avg, high: verified.market.high };
+        valueSource = 'verified_database';
       } else if (identConf <= 2) {
         market = { low: 0, avg: 0, high: 0 };
         valueSource = 'uncertain';
@@ -430,7 +511,7 @@ Most coins are 1-2. Be CONSERVATIVE.` }
         confidence: identConf,
         confidence_levels: {
           identity: confidences.identity, match: confidences.match, value: confidences.value,
-          label: valueSource === 'legendary_verified' ? 'verified' :
+          label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' :
                  valueSource === 'uncertain' ? 'uncertain' :
                  confidences.value >= 75 ? 'estimated' : 'low_confidence'
         },
@@ -505,4 +586,4 @@ app.post('/validate-code', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v200 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v201 running on port ${PORT}`));
