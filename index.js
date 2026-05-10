@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v201
+// TreasureScan Backend — v202
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -97,51 +97,63 @@ function matchLegendary(coinName) {
 }
 
 // ── Verified coins lookup ─────────────────────────────────────
-// Приоритет: canonical_key → id → keyword match
 function lookupVerified(country, nominal, year, coinName) {
   if (!verifiedCoinsCount) return null;
 
-  // 1. Canonical key lookup (най-точен)
-  const fingerprint = normalizeFingerprint(country, nominal, year);
   const nomKey = getNominalKey(nominal);
+  const yearStr = (year || '').toString().trim();
 
-  // Опитваме различни формати на canonical key
-  const candidates = [
-    fingerprint,
-    `eu_${fingerprint}`,
-    `bg_${fingerprint}`,
-  ];
+  // Normalize nominal за търсене
+  const nomNorm = nomKey.replace('_', '');
 
-  for (const key of candidates) {
-    if (verifiedCoinsIndex[key]) return verifiedCoinsIndex[key];
+  // 1. Точен fingerprint с country
+  const fingerprint = normalizeFingerprint(country, nominal, year);
+  if (verifiedCoinsIndex[fingerprint]) return verifiedCoinsIndex[fingerprint];
+
+  // 2. Без country prefix — само nominal + year
+  // Покрива случаите когато Claude дава грешна country
+  const nomYear = `${nomNorm}_${yearStr}`;
+  for (const key of Object.keys(verifiedCoinsIndex)) {
+    if (key.endsWith(nomYear) || key.includes(`_${nomNorm}_${yearStr}`)) {
+      return verifiedCoinsIndex[key];
+    }
   }
 
-  // 2. Partial match по country + nominal + year
-  const countryNorm = (country || '').toLowerCase()
-    .replace(/българия|bulgaria/i, 'bg')
-    .replace(/германия|germany/i, 'de')
-    .replace(/белгия|belgium/i, 'be')
-    .replace(/монако|monaco/i, 'mc')
-    .replace(/франция|france/i, 'fr')
-    .replace(/австрия|austria/i, 'at')
-    .replace(/холандия|netherlands/i, 'nl')
-    .replace(/испания|spain/i, 'es')
-    .replace(/италия|italy/i, 'it')
-    .replace(/португалия|portugal/i, 'pt')
-    .replace(/финландия|finland/i, 'fi')
-    .replace(/гърция|greece/i, 'gr')
-    .replace(/\s+/g, '');
+  // 3. EU prefix опити
+  const euPrefixes = ['eu_de', 'eu_fr', 'eu_it', 'eu_es', 'eu_nl', 'eu_be',
+                      'eu_at', 'eu_pt', 'eu_fi', 'eu_ie', 'eu_gr', 'eu_lu',
+                      'eu_si', 'eu_sk', 'eu_mt', 'eu_cy', 'eu_ee', 'eu_lv',
+                      'eu_lt', 'eu_hr'];
 
-  const nomNorm = getNominalKey(nominal).replace('_', '');
-  const yearStr = (year || '').toString();
+  // Ако е euro монета — търси по всички EU countries
+  const isEuro = /euro|eur/i.test(nominal);
+  if (isEuro) {
+    for (const prefix of euPrefixes) {
+      const key = `${prefix}_${nomNorm}_${yearStr}`;
+      if (verifiedCoinsIndex[key]) return verifiedCoinsIndex[key];
+    }
+  }
 
-  // Опитваме директен key по country + nominal + year
-  const directKey = `${countryNorm}_${nomNorm}_${yearStr}`;
-  if (verifiedCoinsIndex[directKey]) return verifiedCoinsIndex[directKey];
+  // 4. BG prefix за стотинки/лева
+  const isBgn = /стотинк|stotink|лев|lev|bgn/i.test(nominal);
+  if (isBgn) {
+    const bgKey = `bg_${nomNorm}_${yearStr}`;
+    if (verifiedCoinsIndex[bgKey]) return verifiedCoinsIndex[bgKey];
+  }
 
-  // eu_ prefix
-  const euKey = `eu_${countryNorm}_${nomNorm}_${yearStr}`;
-  if (verifiedCoinsIndex[euKey]) return verifiedCoinsIndex[euKey];
+  // 5. Keyword match от coinName — последна опция
+  if (coinName) {
+    const lower = coinName.toLowerCase();
+    for (const [key, coin] of Object.entries(verifiedCoinsIndex)) {
+      if (coin.keywords) {
+        for (const kw of coin.keywords) {
+          if (lower.includes(kw.toLowerCase()) && kw.length >= 6) {
+            return coin;
+          }
+        }
+      }
+    }
+  }
 
   return null;
 }
@@ -258,7 +270,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v201', version: 'v201' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v202', version: 'v202' }));
 
 app.post('/analyze', async (req, res) => {
   try {
