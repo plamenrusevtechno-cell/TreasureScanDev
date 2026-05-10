@@ -176,6 +176,10 @@ const NOMINAL_CAPS = {
   '50_st':   { common: 2.0,  uncommon: 15,  rare: 80  },
   '1_bgn':   { common: 2.0,  uncommon: 20,  rare: 150 },
   '2_bgn':   { common: 3.0,  uncommon: 25,  rare: 200 },
+  // Сребърни и исторически монети — по-висок cap
+  '5_bgn':   { common: 10.0, uncommon: 50,  rare: 500 },
+  '10_bgn':  { common: 15.0, uncommon: 80,  rare: 800 },
+  '20_bgn':  { common: 20.0, uncommon: 100, rare: 1000 },
   'default': { common: 5.0,  uncommon: 30,  rare: 200 },
 };
 
@@ -270,7 +274,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v202', version: 'v202' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v203', version: 'v203' }));
 
 app.post('/analyze', async (req, res) => {
   try {
