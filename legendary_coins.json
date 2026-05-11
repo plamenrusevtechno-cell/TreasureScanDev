@@ -1,0 +1,535 @@
+{
+  "version": "1.0",
+  "updated": "2026-04",
+  "description": "Верифицирана база от редки монети с фиксирани стойности за TreasureScan",
+  "coins": [
+    {
+      "id": "monaco_grace_kelly_2007",
+      "keywords": [
+        "grace kelly",
+        "monaco 2007",
+        "kelly monaco",
+        "grace kelly monaco",
+        "princess grace",
+        "monaco commemorative 2007",
+        "monaco princess",
+        "grace kelly 25th",
+        "monaco 2 euro 2007",
+        "грейс кели",
+        "монако 2007",
+        "принцеса грейс",
+        "монако грейс",
+        "два евро монако",
+        "монако юбилейна",
+        "грейс келли",
+        "монако 2007",
+        "принцесса грейс",
+        "монако памятная",
+        "два евро монако",
+        "монако грейс келли",
+        "grace kelly",
+        "monaco 2007",
+        "prenses grace",
+        "monaco prenses",
+        "monaco",
+        "kelly",
+        "20001"
+      ],
+      "name": "Monaco 2€ Grace Kelly 2007",
+      "rarity_score": 5,
+      "mintage": 20001,
+      "market": {
+        "low": 3500,
+        "avg": 4000,
+        "high": 5000
+      },
+      "locked": true,
+      "note_bg": "Само 20 001 екземпляра. Нараснала 40x от 2007г. Никога не е влизала в обращение.",
+      "note_en": "Only 20,001 minted. Grew 40x since 2007. Never entered circulation.",
+      "note_ru": "Только 20 001 экземпляр. Выросла в 40 раз с 2007 года.",
+      "note_tr": "Sadece 20.001 adet basıldı. 2007'den bu yana 40 kat arttı."
+    },
+    {
+      "id": "us_1933_double_eagle",
+      "keywords": [
+        "1933 double eagle",
+        "saint gaudens 1933",
+        "double eagle gold"
+      ],
+      "name": "1933 Double Eagle (USA)",
+      "rarity_score": 5,
+      "mintage": 20,
+      "market": {
+        "low": 10000000,
+        "avg": 15000000,
+        "high": 18000000
+      },
+      "locked": true,
+      "note_bg": "Никога официално пуснат. Продаден за $18M на търг. Легенда в нумизматиката.",
+      "note_en": "Never officially released. Sold for $18M at auction. Numismatic legend.",
+      "note_ru": "Никогда официально не выпускался. Продан за $18M на аукционе.",
+      "note_tr": "Hiç resmi olarak piyasaya çıkmadı. Açık artırmada 18 milyon $'a satıldı."
+    },
+    {
+      "id": "us_1913_liberty_nickel",
+      "keywords": [
+        "1913 liberty nickel",
+        "liberty head nickel 1913",
+        "1913 nickel"
+      ],
+      "name": "1913 Liberty Head Nickel (USA)",
+      "rarity_score": 5,
+      "mintage": 5,
+      "market": {
+        "low": 8000000,
+        "avg": 10000000,
+        "high": 12000000
+      },
+      "locked": true,
+      "note_bg": "Само 5 известни екземпляра. Тайно изсечен. Мистериозен произход.",
+      "note_en": "Only 5 known examples. Secretly struck. Mysterious origin.",
+      "note_ru": "Только 5 известных экземпляров. Тайно отчеканен.",
+      "note_tr": "Sadece 5 bilinen örnek. Gizlice basıldı. Gizemli köken."
+    },
+    {
+      "id": "us_1794_flowing_hair_dollar",
+      "keywords": [
+        "1794 flowing hair",
+        "flowing hair dollar",
+        "1794 dollar"
+      ],
+      "name": "1794 Flowing Hair Dollar (USA)",
+      "rarity_score": 5,
+      "mintage": 200,
+      "market": {
+        "low": 8000000,
+        "avg": 10000000,
+        "high": 12000000
+      },
+      "locked": true,
+      "note_bg": "Първият сребърен долар на САЩ. Под 200 оцелели в добро състояние.",
+      "note_en": "First US silver dollar ever struck. Under 200 survive in good condition.",
+      "note_ru": "Первый серебряный доллар США. Менее 200 экземпляров в хорошем состоянии.",
+      "note_tr": "ABD'nin ilk gümüş doları. İyi durumda 200'den az örnek kaldı."
+    },
+    {
+      "id": "us_1804_draped_bust_dollar",
+      "keywords": [
+        "1804 silver dollar",
+        "1804 draped bust",
+        "king american coins"
+      ],
+      "name": "1804 Draped Bust Dollar (USA)",
+      "rarity_score": 5,
+      "mintage": 15,
+      "market": {
+        "low": 3000000,
+        "avg": 4000000,
+        "high": 5000000
+      },
+      "locked": true,
+      "note_bg": "Крал на американските монети. Изсечен като дипломатически подаръци.",
+      "note_en": "King of American Coins. Struck as diplomatic gifts decades after 1804.",
+      "note_ru": "Король американских монет. Чеканился как дипломатические подарки.",
+      "note_tr": "Amerikan Paralarının Kralı. Diplomatik hediye olarak basıldı."
+    },
+    {
+      "id": "brasher_doubloon_1787",
+      "keywords": [
+        "brasher doubloon",
+        "brasher 1787",
+        "ephraim brasher"
+      ],
+      "name": "Brasher Doubloon 1787 (USA)",
+      "rarity_score": 5,
+      "mintage": 7,
+      "market": {
+        "low": 7000000,
+        "avg": 9000000,
+        "high": 10000000
+      },
+      "locked": true,
+      "note_bg": "Частно изсечен преди официалния монетен двор на САЩ. Само 7 известни.",
+      "note_en": "Privately struck before the US Mint existed. Only 7 known.",
+      "note_ru": "Частная чеканка до основания Монетного двора США. Только 7 экземпляров.",
+      "note_tr": "ABD Darphanesi kurulmadan önce özel olarak basıldı. Sadece 7 adet bilinmektedir."
+    },
+    {
+      "id": "us_1822_half_eagle",
+      "keywords": [
+        "1822 half eagle",
+        "1822 gold 5 dollar",
+        "half eagle 1822"
+      ],
+      "name": "1822 Half Eagle Gold (USA)",
+      "rarity_score": 5,
+      "mintage": 3,
+      "market": {
+        "low": 6000000,
+        "avg": 8000000,
+        "high": 10000000
+      },
+      "locked": true,
+      "note_bg": "Само 3 известни екземпляра. Един от най-редките американски златни монети.",
+      "note_en": "Only 3 known examples. One of the rarest US gold coins.",
+      "note_ru": "Только 3 известных экземпляра. Один из редчайших золотых монет США.",
+      "note_tr": "Sadece 3 bilinen örnek. En nadir ABD altın paralarından biri."
+    },
+    {
+      "id": "edward_iii_florin_1343",
+      "keywords": [
+        "edward iii florin",
+        "edward florin 1343",
+        "medieval gold florin"
+      ],
+      "name": "Edward III Florin 1343 (UK)",
+      "rarity_score": 5,
+      "mintage": 3,
+      "market": {
+        "low": 5000000,
+        "avg": 6800000,
+        "high": 8000000
+      },
+      "locked": true,
+      "note_bg": "Само 3 известни. Един от най-редките средновековни монети в света.",
+      "note_en": "Only 3 known. One of the rarest medieval coins in the world.",
+      "note_ru": "Только 3 известных. Одна из редчайших средневековых монет в мире.",
+      "note_tr": "Sadece 3 adet bilinmektedir. Dünyanın en nadir ortaçağ paralarından biri."
+    },
+    {
+      "id": "us_1943_copper_penny",
+      "keywords": [
+        "1943 copper penny",
+        "1943 copper cent",
+        "copper wheat penny 1943"
+      ],
+      "name": "1943 Copper Penny (USA)",
+      "rarity_score": 5,
+      "mintage": 20,
+      "market": {
+        "low": 100000,
+        "avg": 400000,
+        "high": 1000000
+      },
+      "locked": true,
+      "note_bg": "Военна грешка — медта заменена със стомана, но малко медни остават.",
+      "note_en": "WWII error — copper replaced with steel, but a few copper blanks remained.",
+      "note_ru": "Военная ошибка — медь заменена сталью, но несколько медных заготовок остались.",
+      "note_tr": "WWII hatası — bakır çelikle değiştirildi, ancak birkaç bakır jeton kaldı."
+    },
+    {
+      "id": "us_1955_double_die_penny",
+      "keywords": [
+        "1955 double die",
+        "1955 doubled die penny",
+        "double die lincoln"
+      ],
+      "name": "1955 Double Die Lincoln Cent (USA)",
+      "rarity_score": 4,
+      "mintage": 20000,
+      "market": {
+        "low": 10000,
+        "avg": 50000,
+        "high": 900000
+      },
+      "locked": true,
+      "note_bg": "Видимо двойно отпечатване видимо с просто око. Легендарна грешка.",
+      "note_en": "Dramatic doubling visible to naked eye. Legendary minting error.",
+      "note_ru": "Заметное двоение видно невооружённым глазом. Легендарная монетная ошибка.",
+      "note_tr": "Çarpıcı çiftlenme çıplak gözle görülebilir. Efsanevi basım hatası."
+    },
+    {
+      "id": "vatican_sede_vacante_2005",
+      "keywords": [
+        "vatican sede vacante",
+        "sede vacante 2005",
+        "vatican 2005 john paul"
+      ],
+      "name": "Vatican 2€ Sede Vacante 2005",
+      "rarity_score": 5,
+      "mintage": 100000,
+      "market": {
+        "low": 1000,
+        "avg": 1500,
+        "high": 2500
+      },
+      "locked": true,
+      "note_bg": "Изсечен по смъртта на Йоан Павел II. Огромно търсене сред колекционери.",
+      "note_en": "Struck upon the death of Pope John Paul II. Huge collector demand.",
+      "note_ru": "Отчеканена после смерти Иоанна Павла II. Огромный спрос среди коллекционеров.",
+      "note_tr": "Papa II. Jean Paul'ün ölümü üzerine basıldı. Büyük koleksiyoncu talebi."
+    },
+    {
+      "id": "monaco_castle_rock_2015",
+      "keywords": [
+        "monaco castle rock 2015",
+        "monaco 2015",
+        "800 anniversary monaco castle"
+      ],
+      "name": "Monaco 2€ Замъкът на скалата 2015",
+      "rarity_score": 5,
+      "mintage": 15000,
+      "market": {
+        "low": 1500,
+        "avg": 2000,
+        "high": 3000
+      },
+      "locked": true,
+      "note_bg": "800г. от замъка на скалата. Много нисък тираж за евро монета.",
+      "note_en": "800th anniversary of Monaco Castle. Very low mintage for a euro coin.",
+      "note_ru": "800 лет замку на скале. Очень низкий тираж для монеты евро.",
+      "note_tr": "Monaco Kalesi'nin 800. yıldönümü. Euro parası için çok düşük basım sayısı."
+    },
+    {
+      "id": "monaco_albert_i_2022",
+      "keywords": [
+        "monaco albert i 2022",
+        "monaco 2022",
+        "prince albert monaco"
+      ],
+      "name": "Monaco 2€ Принц Алберт I 2022",
+      "rarity_score": 4,
+      "mintage": 15000,
+      "market": {
+        "low": 500,
+        "avg": 650,
+        "high": 800
+      },
+      "locked": false,
+      "note_bg": "100г. от смъртта на Принц Алберт I. Изключително нисък тираж.",
+      "note_en": "100th anniversary of Prince Albert I death. Exceptionally low mintage.",
+      "note_ru": "100 лет со смерти Принца Альберта I. Исключительно низкий тираж.",
+      "note_tr": "Prens Albert I'in ölümünün 100. yılı. Son derece düşük basım sayısı."
+    },
+    {
+      "id": "finland_2004_star_error",
+      "keywords": [
+        "finland 2004 error",
+        "finland star error",
+        "finland 2 euro 2004"
+      ],
+      "name": "Finland 2€ Star Error 2004",
+      "rarity_score": 5,
+      "mintage": 500,
+      "market": {
+        "low": 1000,
+        "avg": 1500,
+        "high": 2000
+      },
+      "locked": true,
+      "note_bg": "Дизайнерска грешка в звездите. Изключително редка грешка.",
+      "note_en": "Design error in stars. Exceptionally rare mint error.",
+      "note_ru": "Ошибка дизайна звёзд. Исключительно редкая монетная ошибка.",
+      "note_tr": "Yıldızlarda tasarım hatası. Son derece nadir basım hatası."
+    },
+    {
+      "id": "italy_50_lire_1974_error",
+      "keywords": [
+        "italy 50 lire 1974",
+        "1974 50 lire error",
+        "italian 50 lire"
+      ],
+      "name": "Italy 50 Lire Error 1974",
+      "rarity_score": 5,
+      "mintage": 1000,
+      "market": {
+        "low": 2500,
+        "avg": 3000,
+        "high": 3500
+      },
+      "locked": true,
+      "note_bg": "Дизайнерска грешка. Легенда в европейската нумизматика.",
+      "note_en": "Design flaw. A legend in European numismatics.",
+      "note_ru": "Дефект дизайна. Легенда европейской нумизматики.",
+      "note_tr": "Tasarım kusuru. Avrupa nümizmatiğinde bir efsane."
+    },
+    {
+      "id": "uk_1933_penny",
+      "keywords": [
+        "1933 uk penny",
+        "1933 british penny",
+        "1933 penny england"
+      ],
+      "name": "1933 UK Penny",
+      "rarity_score": 5,
+      "mintage": 7,
+      "market": {
+        "low": 70000,
+        "avg": 80000,
+        "high": 100000
+      },
+      "locked": true,
+      "note_bg": "Само прототипи — никога за обращение. Само 7 известни.",
+      "note_en": "Only prototypes — never for circulation. Only 7 known.",
+      "note_ru": "Только прототипы — никогда не предназначались для обращения. 7 известных.",
+      "note_tr": "Sadece prototip — hiç tedavüle girmedi. Sadece 7 adet bilinmektedir."
+    },
+    {
+      "id": "vatican_2euro_first_2002",
+      "keywords": [
+        "vatican 1 euro 2002",
+        "vatican first euro",
+        "vatican euro 2002"
+      ],
+      "name": "Vatican 1€ First Issue 2002",
+      "rarity_score": 4,
+      "mintage": 50000,
+      "market": {
+        "low": 600,
+        "avg": 800,
+        "high": 1000
+      },
+      "locked": false,
+      "note_bg": "Първата евро монета на Ватикана. Малко население = малък тираж.",
+      "note_en": "First Vatican euro coin. Small population = small mintage.",
+      "note_ru": "Первая евро-монета Ватикана. Малое население = малый тираж.",
+      "note_tr": "İlk Vatikan euro parası. Küçük nüfus = küçük basım sayısı."
+    },
+    {
+      "id": "san_marino_borghesi_2004",
+      "keywords": [
+        "san marino borghesi",
+        "san marino 2004",
+        "bartolomeo borghesi"
+      ],
+      "name": "San Marino 2€ Borghesi 2004",
+      "rarity_score": 3,
+      "mintage": 110000,
+      "market": {
+        "low": 150,
+        "avg": 175,
+        "high": 200
+      },
+      "locked": false,
+      "note_bg": "Посветен на нумизмата Бartolomeo Borghesi. Ограничен тираж.",
+      "note_en": "Dedicated to numismatist Bartolomeo Borghesi. Limited mintage.",
+      "note_ru": "Посвящена нумизмату Бартоломео Боргезе. Ограниченный тираж.",
+      "note_tr": "Nümizmat Bartolomeo Borghesi'ye adanmıştır. Sınırlı basım."
+    },
+    {
+      "id": "monaco_regular_2euro",
+      "keywords": [
+        "monaco regular 2euro",
+        "rainier monaco",
+        "albert monaco standard"
+      ],
+      "name": "Monaco Regular 2€",
+      "rarity_score": 3,
+      "mintage": 300000,
+      "market": {
+        "low": 8,
+        "avg": 15,
+        "high": 25
+      },
+      "locked": false,
+      "note_bg": "Всички редовни Monaco монети са ценни заради малкия тираж.",
+      "note_en": "All regular Monaco coins are valuable due to low mintage.",
+      "note_ru": "Все обычные монеты Монако ценны из-за малого тиража.",
+      "note_tr": "Tüm normal Monaco paraları düşük basım sayısı nedeniyle değerlidir."
+    },
+    {
+      "id": "andorra_map_error_2014",
+      "keywords": [
+        "andorra 2014 error",
+        "andorra map error",
+        "andorra wrong map"
+      ],
+      "name": "Andorra 2€ Map Error 2014",
+      "rarity_score": 4,
+      "mintage": 2000,
+      "market": {
+        "low": 400,
+        "avg": 600,
+        "high": 1000
+      },
+      "locked": false,
+      "note_bg": "Грешна европейска карта. Монета с грешка — рядка находка.",
+      "note_en": "Wrong European map printed. Error coin — rare find.",
+      "note_ru": "Неправильная карта Европы. Монета с ошибкой — редкая находка.",
+      "note_tr": "Yanlış Avrupa haritası basıldı. Hata parası — nadir bulgu."
+    },
+    {
+      "id": "luxembourg_proof_2025",
+      "keywords": [
+        "luxembourg 2025 proof",
+        "luxembourg proof 2euro"
+      ],
+      "name": "Luxembourg 2€ Proof 2025",
+      "rarity_score": 4,
+      "mintage": 1000,
+      "market": {
+        "low": 250,
+        "avg": 400,
+        "high": 600
+      },
+      "locked": false,
+      "note_bg": "Един от най-ниските тиражи в историята на 2€ монетите.",
+      "note_en": "One of the lowest mintages in 2€ coin history.",
+      "note_ru": "Один из самых низких тиражей в истории монет 2 евро.",
+      "note_tr": "2€ para tarihindeki en düşük basım sayılarından biri."
+    },
+    {
+      "id": "croatia_proof_2025",
+      "keywords": [
+        "croatia 2025 proof",
+        "croatia proof 2euro",
+        "hrvatska 2025"
+      ],
+      "name": "Croatia 2€ Proof 2025",
+      "rarity_score": 5,
+      "mintage": 500,
+      "market": {
+        "low": 400,
+        "avg": 600,
+        "high": 800
+      },
+      "locked": false,
+      "note_bg": "Рекорден нисък тираж — само 500 броя. Веднага ценна.",
+      "note_en": "Record low mintage — only 500 pieces. Instantly valuable.",
+      "note_ru": "Рекордно низкий тираж — всего 500 штук. Моментально ценная.",
+      "note_tr": "Rekor düşük basım — sadece 500 adet. Anında değerli."
+    },
+    {
+      "id": "us_1916d_mercury_dime",
+      "keywords": [
+        "1916 mercury dime",
+        "1916-d dime",
+        "mercury dime denver"
+      ],
+      "name": "1916-D Mercury Dime (USA)",
+      "rarity_score": 4,
+      "mintage": 264000,
+      "market": {
+        "low": 8000,
+        "avg": 30000,
+        "high": 60000
+      },
+      "locked": false,
+      "note_bg": "Ключова дата в серията. Много ценен в добро състояние.",
+      "note_en": "Key date in the Mercury Dime series. Very valuable in high grade.",
+      "note_ru": "Ключевая дата серии Mercury Dime. Очень ценна в высоком грейде.",
+      "note_tr": "Mercury Dime serisinde önemli tarih. Yüksek derecede çok değerli."
+    },
+    {
+      "id": "monaco_albert_charlene_2021",
+      "keywords": [
+        "monaco 2021 wedding",
+        "albert charlene 2021",
+        "monaco marriage 2021"
+      ],
+      "name": "Monaco 2€ Albert & Charlene 2021",
+      "rarity_score": 3,
+      "mintage": 5000,
+      "market": {
+        "low": 30,
+        "avg": 45,
+        "high": 60
+      },
+      "locked": false,
+      "note_bg": "10г. от сватбата на Принц Алберт. Само coincard версия.",
+      "note_en": "10th anniversary of Prince Albert's wedding. Coincard version only.",
+      "note_ru": "10 лет свадьбы Принца Альберта. Только версия в coincard.",
+      "note_tr": "Prens Albert'in düğününün 10. yıldönümü. Sadece coincard versiyonu."
+    }
+  ]
+}
