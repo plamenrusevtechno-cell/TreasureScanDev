@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v202
+// TreasureScan Backend — v204
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v203', version: 'v203' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v204', version: 'v204' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -297,20 +297,40 @@ app.post('/analyze', async (req, res) => {
 
     const prompt = `Return ONLY valid JSON. No markdown.${visionContext}
 
-TASK: IDENTIFY the coin. Do NOT estimate prices. Be conservative.
+TASK: IDENTIFY the coin with maximum precision. Read ALL visible text and numbers carefully.
+
+CRITICAL RULES FOR NOMINAL:
+- READ the number on the coin FIRST before anything else
+- If you see "20" → nominal is "20 cent" or "20 euro cent" (NOT 5, NOT 50)
+- If you see "50" with "CT" or "CENT" → "50 cent" (NOT stotinki unless Bulgarian)
+- If you see "стотинки" or "СТ" → Bulgarian stotinki
+- If you see stars around the coin edge → likely Euro coin
+- If OCR shows a number → USE THAT NUMBER for nominal
+- NEVER guess the nominal — READ it from the coin
+
+CRITICAL RULES FOR COUNTRY:
+- Euro coins: look for country-specific design (Brandenburg gate=Germany, Marianne=France, etc.)
+- If coin has EU stars + country design → it's that EU country's euro coin
+- Bulgarian coins: Cyrillic text "БЪЛГАРИЯ" or "лв" or "ст"
+- Read inscription carefully for country name
+
+CRITICAL RULES FOR YEAR:
+- Find 4-digit number (1800-2026) on the coin
+- If OCR provides year → use it
+- Do NOT confuse denomination numbers with year
 
 If a coin:
 {
   "is_coin": true,
-  "name": "Exact name (e.g. '10 Euro Cent Belgium 2002')",
+  "name": "Exact name with correct nominal (e.g. '20 Euro Cent Germany 2002', '50 Stotinki Bulgaria 1999')",
   "identity_confidence": 1-5,
   "rarity_score": 1-5,
   "condition_score": 1-5,
   "coin_type": "circulation|commemorative|proof|error|bullion",
   "details": {
-    "country": "Country in English",
-    "year": "Year",
-    "nominal": "Face value (e.g. '10 cent', '2 euro', '50 стотинки')",
+    "country": "Country in English (e.g. 'Germany', 'Bulgaria', 'Belgium')",
+    "year": "4-digit year as string",
+    "nominal": "EXACT face value with unit (e.g. '20 cent', '2 euro', '50 stotinki', '1 lev')",
     "metal": "Composition",
     "history": "2-3 sentences in ${selectedLang}",
     "diameter": "mm or empty",
@@ -326,13 +346,13 @@ If a coin:
 }
 
 RARITY (strict):
-1=standard circulation millions minted
+1=standard circulation millions minted (most euro cents, common coins)
 2=less common 10M-100M
 3=commemorative limited under 10M
 4=rare/error/proof under 1M
-5=ONLY legendary under 100k or museum
+5=ONLY legendary under 100k or museum piece
 
-CONFIDENCE: 5=crystal clear 4=good 3=moderate 2=poor 1=very uncertain
+CONFIDENCE: 5=crystal clear all text readable 4=good 3=moderate 2=poor image 1=very uncertain
 
 If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
 
@@ -450,19 +470,27 @@ app.post('/analyze-multiple', async (req, res) => {
           { type: 'text', text: `Return ONLY valid JSON array. No markdown.
 
 Identify ALL coins visible. IDENTIFICATION ONLY — no prices.
+READ each coin's number carefully before identifying nominal.
 
 [{
-  "name": "Exact name",
+  "name": "Exact name with correct nominal",
   "coin_x": 0.0-1.0, "coin_y": 0.0-1.0,
   "identity_confidence": 1-5,
   "rarity_score": 1-5, "condition_score": 1-5,
   "coin_type": "circulation|commemorative|proof|error",
-  "details": { "country": "English", "year": "", "nominal": "", "metal": "", "history": "2 sentences in ${selectedLang}" },
+  "details": {
+    "country": "Country in English",
+    "year": "4-digit year",
+    "nominal": "EXACT face value (e.g. '20 cent', '50 stotinki', '2 euro')",
+    "metal": "Metal",
+    "history": "2 sentences in ${selectedLang}"
+  },
   "deep": { "fun_fact": "in ${selectedLang}", "collector_note": "in ${selectedLang}", "mintage": "" }
 }]
 
+NOMINAL RULES: Read the number on each coin. 20=20cent, 50=50cent/stotinki, 2=2euro.
 RARITY: 1=common circulation, 2=less common, 3=commemorative, 4=rare/error, 5=legendary
-Most coins are 1-2. Be CONSERVATIVE.` }
+Most coins are rarity 1-2. Be CONSERVATIVE.` }
         ]
       }]
     });
