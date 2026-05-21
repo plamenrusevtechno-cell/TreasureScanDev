@@ -309,10 +309,18 @@ CRITICAL RULES FOR NOMINAL:
 - NEVER guess the nominal — READ it from the coin
 
 CRITICAL RULES FOR COUNTRY:
-- Euro coins: look for country-specific design (Brandenburg gate=Germany, Marianne=France, etc.)
-- If coin has EU stars + country design → it's that EU country's euro coin
-- Bulgarian coins: Cyrillic text "БЪЛГАРИЯ" or "лв" or "ст"
-- Read inscription carefully for country name
+- MOST IMPORTANT: Read ALL text inscriptions on BOTH sides of the coin
+- Country name or Cyrillic script "БЪЛГАРИЯ" = Bulgaria
+- "BUNDESREPUBLIK DEUTSCHLAND" or "DEUTSCHLAND" = Germany
+- "REPUBLIQUE FRANCAISE" = France
+- "REPUBBLICA ITALIANA" = Italy
+- "ESPAÑA" = Spain
+- "IRELAND" or harp = Ireland
+- "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ" = Greece
+- For Euro coins: the NATIONAL side shows the country — read any text or look for flags/inscriptions
+- If Cyrillic script present → Bulgaria or Russia (check for лв/ст = Bulgaria, руб = Russia)
+- NEVER assume country from design alone — READ the text first
+- If text is unclear → set identity_confidence to 2 or lower
 
 CRITICAL RULES FOR YEAR:
 - Find 4-digit number (1800-2026) on the coin
@@ -359,8 +367,9 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     userContent.push({ type: 'text', text: prompt });
 
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
+      system: 'You are an expert numismatist. ALWAYS read ALL text inscriptions on the coin first — text is more reliable than design. Cyrillic БЪЛГАРИЯ = Bulgaria. Read nominal numbers carefully. If unsure, set identity_confidence low.',
       messages: [{ role: 'user', content: userContent }]
     });
 
