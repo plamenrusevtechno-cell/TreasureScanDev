@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v204
+// TreasureScan Backend — v205  21.05.2026
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v204', version: 'v204' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v205', version: 'v205', date: '21.05.2026' }));
 
 app.post('/analyze', async (req, res) => {
   try {
