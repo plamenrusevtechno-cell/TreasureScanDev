@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v205  21.05.2026
+// TreasureScan Backend — v206  22.05.2026
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v205', version: 'v205', date: '21.05.2026' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v206', version: 'v206', date: '22.05.2026' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -633,10 +633,12 @@ app.post('/validate-code', (req, res) => {
   if (input === TREASUREGOD) return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50 });
   if (input === BADGEKING)   return res.json({ valid: true, type: 'badges',  count: 20 });
   if (input === GRACEKELLY)  return res.json({ valid: true, type: 'legendary' });
-  if (input === KRIS2014)    return res.json({ valid: true, type: 'family',  scans: 500, xp: 5000, level: 50, days: 30 });
+  const ALEX0709 = process.env.CODE_ALEX0709 || 'ALEX0709';
+  if (input === ALEX0709)    return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50, days: 30, scans: 500 });
+  if (input === KRIS2014)    return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50, days: 30, scans: 500 });
 
   res.json({ valid: false, type: 'invalid' });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v201 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v206 running on port ${PORT}`));
