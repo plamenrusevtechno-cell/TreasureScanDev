@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v206  22.05.2026
+// TreasureScan Backend — v204
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v206', version: 'v206', date: '22.05.2026' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v204', version: 'v204' }));
 
 app.post('/analyze', async (req, res) => {
   try {
@@ -309,18 +309,10 @@ CRITICAL RULES FOR NOMINAL:
 - NEVER guess the nominal — READ it from the coin
 
 CRITICAL RULES FOR COUNTRY:
-- MOST IMPORTANT: Read ALL text inscriptions on BOTH sides of the coin
-- Country name or Cyrillic script "БЪЛГАРИЯ" = Bulgaria
-- "BUNDESREPUBLIK DEUTSCHLAND" or "DEUTSCHLAND" = Germany
-- "REPUBLIQUE FRANCAISE" = France
-- "REPUBBLICA ITALIANA" = Italy
-- "ESPAÑA" = Spain
-- "IRELAND" or harp = Ireland
-- "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ" = Greece
-- For Euro coins: the NATIONAL side shows the country — read any text or look for flags/inscriptions
-- If Cyrillic script present → Bulgaria or Russia (check for лв/ст = Bulgaria, руб = Russia)
-- NEVER assume country from design alone — READ the text first
-- If text is unclear → set identity_confidence to 2 or lower
+- Euro coins: look for country-specific design (Brandenburg gate=Germany, Marianne=France, etc.)
+- If coin has EU stars + country design → it's that EU country's euro coin
+- Bulgarian coins: Cyrillic text "БЪЛГАРИЯ" or "лв" or "ст"
+- Read inscription carefully for country name
 
 CRITICAL RULES FOR YEAR:
 - Find 4-digit number (1800-2026) on the coin
@@ -367,9 +359,8 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     userContent.push({ type: 'text', text: prompt });
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1000,
-      system: 'You are an expert numismatist. ALWAYS read ALL text inscriptions on the coin first — text is more reliable than design. Cyrillic БЪЛГАРИЯ = Bulgaria. Read nominal numbers carefully. If unsure, set identity_confidence low.',
       messages: [{ role: 'user', content: userContent }]
     });
 
@@ -630,15 +621,14 @@ app.post('/validate-code', (req, res) => {
   const KRIS2014    = process.env.CODE_KRIS2014    || 'KRIS2014';
 
   if (input === KRIS777)     return res.json({ valid: true, type: 'scans',   amount: 500 });
+  if (input === 'ALEX0709')  return res.json({ valid: true, type: 'scans',   amount: 500 });
   if (input === TREASUREGOD) return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50 });
   if (input === BADGEKING)   return res.json({ valid: true, type: 'badges',  count: 20 });
   if (input === GRACEKELLY)  return res.json({ valid: true, type: 'legendary' });
-  const ALEX0709 = process.env.CODE_ALEX0709 || 'ALEX0709';
-  if (input === ALEX0709)    return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50, days: 30, scans: 500 });
-  if (input === KRIS2014)    return res.json({ valid: true, type: 'godmode', xp: 5000, level: 50, days: 30, scans: 500 });
+  if (input === KRIS2014)    return res.json({ valid: true, type: 'family',  scans: 500, xp: 5000, level: 50, days: 30 });
 
   res.json({ valid: false, type: 'invalid' });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v206 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v201 running on port ${PORT}`));
