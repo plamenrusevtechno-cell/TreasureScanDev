@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v205.2 30.05.2026
+// TreasureScan Backend — v204
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -10,6 +10,15 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+
+// ── Nodemailer транспорт ───────────────────────────────────
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.FEEDBACK_EMAIL_USER,
+    pass: process.env.FEEDBACK_EMAIL_PASS,  // Gmail App Password
+  },
+});
 app.use(express.json({ limit: '20mb' }));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
@@ -274,7 +283,54 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v204', version: 'v204' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v205', version: 'v205' }));
+
+// ── FEEDBACK endpoint ──────────────────────────────────────
+app.post('/feedback', async (req, res) => {
+  try {
+    const { type, message, lang, level, totalScanned, isPremium, timestamp } = req.body;
+    if (!type || !message) return res.status(400).json({ error: 'Missing type or message' });
+
+    const emoji = { idea: '💬', bug: '🐛', feature: '⭐' }[type] || '📝';
+    const label = { idea: 'IDEA', bug: 'BUG', feature: 'FEATURE' }[type] || type.toUpperCase();
+    const langLabel = { bg: '🇧🇬', en: '🇬🇧', ru: '🇷🇺', tr: '🇹🇷' }[lang] || lang;
+
+    // Log
+    console.log(`[FEEDBACK] ${emoji} ${label} | Lv${level} | ${totalScanned} scans | ${langLabel} | Premium:${isPremium}`);
+    console.log(`[FEEDBACK] ${message}`);
+
+    // Email
+    if (process.env.FEEDBACK_EMAIL_USER && process.env.FEEDBACK_EMAIL_PASS) {
+      await mailer.sendMail({
+        from: `"TreasureScan Vault" <${process.env.FEEDBACK_EMAIL_USER}>`,
+        to: 'treasurescancoinscanner@gmail.com',
+        subject: `${emoji} [${label}] TreasureScan Feedback — Lv${level} ${langLabel}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;background:#0D0900;color:#D4AF37;padding:24px;border-radius:12px;border:1px solid #B8860B">
+            <h2 style="margin:0 0 8px">${emoji} ${label}</h2>
+            <hr style="border-color:#B8860B33;margin:12px 0"/>
+            <p style="color:#fff;font-size:16px;line-height:1.6;white-space:pre-wrap">${message}</p>
+            <hr style="border-color:#B8860B33;margin:12px 0"/>
+            <table style="color:#888;font-size:12px;width:100%">
+              <tr><td>🎮 Level</td><td><b style="color:#D4AF37">Lv${level}</b></td></tr>
+              <tr><td>🔍 Scans</td><td><b style="color:#D4AF37">${totalScanned}</b></td></tr>
+              <tr><td>💎 Premium</td><td><b style="color:#D4AF37">${isPremium ? 'Yes' : 'No'}</b></td></tr>
+              <tr><td>🌍 Lang</td><td><b style="color:#D4AF37">${langLabel} ${lang}</b></td></tr>
+              <tr><td>🕐 Time</td><td><b style="color:#D4AF37">${timestamp}</b></td></tr>
+            </table>
+          </div>
+        `,
+      });
+      console.log('[FEEDBACK] Email sent successfully');
+    }
+
+    res.json({ success: true, received: true });
+  } catch (err) {
+    console.error('Feedback error:', err.message);
+    // Връщаме success на клиента дори при email грешка — не искаме да тревожим потребителя
+    res.json({ success: true, received: true });
+  }
+});
 
 app.post('/analyze', async (req, res) => {
   try {
