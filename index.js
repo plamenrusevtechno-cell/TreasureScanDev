@@ -309,10 +309,12 @@ CRITICAL RULES FOR NOMINAL:
 - NEVER guess the nominal — READ it from the coin
 
 CRITICAL RULES FOR COUNTRY:
-- Euro coins: look for country-specific design (Brandenburg gate=Germany, Marianne=France, etc.)
-- If coin has EU stars + country design → it's that EU country's euro coin
-- Bulgarian coins: Cyrillic text "БЪЛГАРИЯ" or "лв" or "ст"
-- Read inscription carefully for country name
+- ONLY state country if you can READ it explicitly on the coin (text, inscription, cyrillic/latin name)
+- Bulgarian coins: MUST see "БЪЛГАРИЯ", "лв", "ст", "BGN" — design alone is NOT enough
+- Euro coins: ONLY identify country if you see explicit country name/inscription, NOT just design style
+- Brandenburg gate, Marianne, etc. = design hint only — set country_confidence = "low" if only design clue
+- If you cannot read the country from the coin text → set country to null and country_confidence = "none"
+- NEVER guess country from design alone when single side shown
 
 CRITICAL RULES FOR YEAR:
 - Find 4-digit number (1800-2026) on the coin
@@ -327,8 +329,10 @@ If a coin:
   "rarity_score": 1-5,
   "condition_score": 1-5,
   "coin_type": "circulation|commemorative|proof|error|bullion",
+  "visible_side": "obverse|reverse|unknown",
+  "country_confidence": "high|medium|low|none",
   "details": {
-    "country": "Country in English (e.g. 'Germany', 'Bulgaria', 'Belgium')",
+    "country": "Country in English ONLY if explicitly readable on coin, else null",
     "year": "4-digit year as string",
     "nominal": "EXACT face value with unit (e.g. '20 cent', '2 euro', '50 stotinki', '1 lev')",
     "metal": "Composition",
@@ -380,19 +384,38 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     const condition = Math.min(5, Math.max(1, coinData.condition_score || 3));
     const identConf = Math.min(5, Math.max(1, coinData.identity_confidence || 3));
     const nominal   = coinData.details?.nominal || '';
-    const country   = coinData.details?.country || '';
     const year      = coinData.details?.year || '';
+    const visibleSide      = coinData.visible_side || 'unknown';
+    const countryConfRaw   = coinData.country_confidence || 'none';
+    const isBothSides      = bothSides && backImageBase64;
+
+    // ── STRICT COUNTRY LOGIC ───────────────────────────────────
+    // Country се показва САМО ако е прочетена от монетата, не позната
+    const countryConfident = countryConfRaw === 'high' || countryConfRaw === 'medium';
+    const rawCountry = coinData.details?.country || null;
+    // Ако само гръб/reverse и country confidence не е high → скриваме country
+    const country = (rawCountry && countryConfident) ? rawCountry : null;
+
+    // ── STRICT VALUE LOGIC ─────────────────────────────────────
+    // Стойност само ако: bothSides ИЛИ identConf >= 4 И country е известна
+    const canShowValue = isBothSides
+      ? identConf >= 2
+      : (identConf >= 4 && countryConfident && !!rawCountry);
 
     // DB lookup
     const legendary  = matchLegendary(coinData.name);
-    const verified   = !legendary ? lookupVerified(country, nominal, year, coinData.name) : null;
-    const fingerprint = normalizeFingerprint(country, nominal, year);
+    const verified   = !legendary ? lookupVerified(country || rawCountry || '', nominal, year, coinData.name) : null;
+    const fingerprint = normalizeFingerprint(country || rawCountry || '', nominal, year);
     const nomKey     = getNominalKey(nominal);
     const caps       = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
 
     // Market valuation — приоритет: legendary → verified → ai_capped
     let market, valueSource;
-    if (legendary) {
+    if (!canShowValue) {
+      // Недостатъчно info за стойност — само една страна с ниска увереност
+      market = { low: 0, avg: 0, high: 0 };
+      valueSource = 'insufficient_data';
+    } else if (legendary) {
       market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high };
       valueSource = 'legendary_verified';
     } else if (verified) {
@@ -418,8 +441,10 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
 
     const confidences = calcConfidences(identConf, legendary, rarity, nomKey);
     const fmt = v => v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v).toString();
-    const estimatedValue = valueSource === 'uncertain' ? '?' :
-      market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
+    const estimatedValue = valueSource === 'insufficient_data'
+      ? 'scan_both_sides'
+      : valueSource === 'uncertain' ? '?'
+      : market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
 
     const id = stableId(coinData, `coin_${Date.now()}`);
 
@@ -439,9 +464,17 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
       market, estimated_value: estimatedValue, value_source: valueSource,
       fingerprint,
       legendary_verified: !!legendary, legendary_id: legendary?.id || null,
-      details: { ...coinData.details, coin_type: coinData.coin_type || 'circulation' },
+      details: {
+        ...coinData.details,
+        country: country,              // null ако не е прочетена с увереност
+        country_raw: rawCountry,       // оригиналния AI отговор за debug
+        coin_type: coinData.coin_type || 'circulation'
+      },
+      country_confidence: countryConfRaw,
+      visible_side: visibleSide,
       deep: coinData.deep || {},
-      both_sides_analyzed: bothSides || false,
+      both_sides_analyzed: isBothSides,
+      value_requires_both_sides: !canShowValue && !isBothSides,
       response_language: language, vision_used: !!visionData,
     };
 
