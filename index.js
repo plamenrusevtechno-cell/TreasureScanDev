@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v204
+// TreasureScan Backend — v205.2 30.05.2026
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
