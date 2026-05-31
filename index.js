@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v204
+// TreasureScan Backend — v 205.5 31.05.2026
 // Hybrid Pipeline: AI (eyes) + Database (brain)
 // Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
@@ -718,6 +718,51 @@ app.post('/validate-code', (req, res) => {
   if (input === KRIS2014)    return res.json({ valid: true, type: 'family',  scans: 500, xp: 5000, level: 50, days: 30 });
 
   res.json({ valid: false, type: 'invalid' });
+});
+
+
+app.post('/feedback', async (req, res) => {
+  try {
+    const { type, message, lang, level, totalScanned, isPremium, timestamp } = req.body;
+    if (!message || !type) return res.status(400).json({ error: 'Missing fields' });
+
+    const emailUser = process.env.FEEDBACK_EMAIL_USER;
+    const emailPass = process.env.FEEDBACK_EMAIL_PASS;
+    const emailTo   = process.env.FEEDBACK_EMAIL_TO || emailUser;
+
+    const typeEmoji = { idea: '💬', bug: '🐛', feature: '⭐' }[type] || '📝';
+    const subject = `${typeEmoji} TreasureScan Feedback: ${type.toUpperCase()}`;
+    const body = `
+Type: ${type}
+Message: ${message}
+---
+Lang: ${lang || 'unknown'}
+Level: ${level || 0}
+Total Scanned: ${totalScanned || 0}
+Premium: ${isPremium ? 'Yes' : 'No'}
+Time: ${timestamp || new Date().toISOString()}
+    `.trim();
+
+    if (emailUser && emailPass) {
+      const mailer = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: emailUser, pass: emailPass },
+      });
+      await mailer.sendMail({
+        from: emailUser,
+        to: emailTo,
+        subject,
+        text: body,
+      });
+    } else {
+      console.log('FEEDBACK (no email configured):', { type, message, lang, level });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('/feedback error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
