@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v 205.5 31.05.2026
+// TreasureScan Backend — v206
+// Updated: 2026-06-01 22:30
 // Hybrid Pipeline: AI (eyes) + Database (brain)
-// Архитектура: Identify → Fingerprint → Lookup → Safe Valuation
 // ═══════════════════════════════════════════════════════════════
 
 const express = require('express');
@@ -11,15 +11,6 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 
 const app = express();
-
-// ── Nodemailer транспорт ───────────────────────────────────
-const mailer = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.FEEDBACK_EMAIL_USER,
-    pass: process.env.FEEDBACK_EMAIL_PASS,  // Gmail App Password
-  },
-});
 app.use(express.json({ limit: '20mb' }));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
@@ -39,29 +30,22 @@ try {
   const raw = fs.readFileSync(path.join(__dirname, 'legendary_coins.json'), 'utf-8');
   legendaryCoins = JSON.parse(raw).coins || [];
   console.log(`Legendary coins loaded: ${legendaryCoins.length}`);
-} catch (e) {
-  console.warn('legendary_coins.json not found:', e.message);
-}
+} catch (e) { console.warn('legendary_coins.json not found:', e.message); }
 
-// Verified coins database — indexed by canonical_key за O(1) lookup
 let verifiedCoinsIndex = {};
 let verifiedCoinsCount = 0;
 try {
   const raw = fs.readFileSync(path.join(__dirname, 'coins_verified.json'), 'utf-8');
   const data = JSON.parse(raw);
   const coins = data.coins || [];
-  // Индексираме по canonical_key И по id
   for (const coin of coins) {
     if (coin.canonical_key) verifiedCoinsIndex[coin.canonical_key] = coin;
     if (coin.id) verifiedCoinsIndex[coin.id] = coin;
   }
   verifiedCoinsCount = coins.length;
   console.log(`Verified coins loaded: ${verifiedCoinsCount} (index size: ${Object.keys(verifiedCoinsIndex).length})`);
-} catch (e) {
-  console.warn('coins_verified.json not found:', e.message);
-}
+} catch (e) { console.warn('coins_verified.json not found:', e.message); }
 
-// ── Normalized fingerprint ────────────────────────────────────
 function normalizeFingerprint(country, nominal, year) {
   const c = (country || '').toLowerCase()
     .replace(/българия|bulgaria/i, 'bg')
@@ -79,19 +63,16 @@ function normalizeFingerprint(country, nominal, year) {
     .replace(/гърция|greece/i, 'gr')
     .replace(/русия|russia/i, 'ru')
     .replace(/\s+/g, '').trim();
-
   const n = (nominal || '').toLowerCase()
     .replace(/евро цент|euro cent|евроцент/gi, 'c')
     .replace(/евро|euro|eur/gi, 'eur')
     .replace(/лев|лева|bgn/gi, 'bgn')
     .replace(/стотинк[аи]/gi, 'st')
     .replace(/\s+/g, '').trim();
-
   const y = (year || '').toString().trim();
   return `${c}_${n}_${y}`.replace(/[^a-z0-9_]/g, '');
 }
 
-// ── Legendary match ───────────────────────────────────────────
 function matchLegendary(coinName) {
   if (!coinName || !legendaryCoins.length) return null;
   const lower = coinName.toLowerCase();
@@ -106,36 +87,18 @@ function matchLegendary(coinName) {
   return best;
 }
 
-// ── Verified coins lookup ─────────────────────────────────────
 function lookupVerified(country, nominal, year, coinName) {
   if (!verifiedCoinsCount) return null;
-
   const nomKey = getNominalKey(nominal);
   const yearStr = (year || '').toString().trim();
-
-  // Normalize nominal за търсене
   const nomNorm = nomKey.replace('_', '');
-
-  // 1. Точен fingerprint с country
   const fingerprint = normalizeFingerprint(country, nominal, year);
   if (verifiedCoinsIndex[fingerprint]) return verifiedCoinsIndex[fingerprint];
-
-  // 2. Без country prefix — само nominal + year
-  // Покрива случаите когато Claude дава грешна country
   const nomYear = `${nomNorm}_${yearStr}`;
   for (const key of Object.keys(verifiedCoinsIndex)) {
-    if (key.endsWith(nomYear) || key.includes(`_${nomNorm}_${yearStr}`)) {
-      return verifiedCoinsIndex[key];
-    }
+    if (key.endsWith(nomYear) || key.includes(`_${nomNorm}_${yearStr}`)) return verifiedCoinsIndex[key];
   }
-
-  // 3. EU prefix опити
-  const euPrefixes = ['eu_de', 'eu_fr', 'eu_it', 'eu_es', 'eu_nl', 'eu_be',
-                      'eu_at', 'eu_pt', 'eu_fi', 'eu_ie', 'eu_gr', 'eu_lu',
-                      'eu_si', 'eu_sk', 'eu_mt', 'eu_cy', 'eu_ee', 'eu_lv',
-                      'eu_lt', 'eu_hr'];
-
-  // Ако е euro монета — търси по всички EU countries
+  const euPrefixes = ['eu_de','eu_fr','eu_it','eu_es','eu_nl','eu_be','eu_at','eu_pt','eu_fi','eu_ie','eu_gr','eu_lu','eu_si','eu_sk','eu_mt','eu_cy','eu_ee','eu_lv','eu_lt','eu_hr'];
   const isEuro = /euro|eur/i.test(nominal);
   if (isEuro) {
     for (const prefix of euPrefixes) {
@@ -143,32 +106,24 @@ function lookupVerified(country, nominal, year, coinName) {
       if (verifiedCoinsIndex[key]) return verifiedCoinsIndex[key];
     }
   }
-
-  // 4. BG prefix за стотинки/лева
   const isBgn = /стотинк|stotink|лев|lev|bgn/i.test(nominal);
   if (isBgn) {
     const bgKey = `bg_${nomNorm}_${yearStr}`;
     if (verifiedCoinsIndex[bgKey]) return verifiedCoinsIndex[bgKey];
   }
-
-  // 5. Keyword match от coinName — последна опция
   if (coinName) {
     const lower = coinName.toLowerCase();
     for (const [key, coin] of Object.entries(verifiedCoinsIndex)) {
       if (coin.keywords) {
         for (const kw of coin.keywords) {
-          if (lower.includes(kw.toLowerCase()) && kw.length >= 6) {
-            return coin;
-          }
+          if (lower.includes(kw.toLowerCase()) && kw.length >= 6) return coin;
         }
       }
     }
   }
-
   return null;
 }
 
-// ── Hard caps по номинал ──────────────────────────────────────
 const NOMINAL_CAPS = {
   '1_cent':  { common: 1.0,  uncommon: 5,   rare: 30  },
   '2_cent':  { common: 1.0,  uncommon: 5,   rare: 30  },
@@ -186,7 +141,6 @@ const NOMINAL_CAPS = {
   '50_st':   { common: 2.0,  uncommon: 15,  rare: 80  },
   '1_bgn':   { common: 2.0,  uncommon: 20,  rare: 150 },
   '2_bgn':   { common: 3.0,  uncommon: 25,  rare: 200 },
-  // Сребърни и исторически монети — по-висок cap
   '5_bgn':   { common: 10.0, uncommon: 50,  rare: 500 },
   '10_bgn':  { common: 15.0, uncommon: 80,  rare: 800 },
   '20_bgn':  { common: 20.0, uncommon: 100, rare: 1000 },
@@ -214,41 +168,28 @@ function getNominalKey(nominal) {
   return 'default';
 }
 
-// ── Safe valuation ────────────────────────────────────────────
 function safeValuation(rarityScore, nominal, baseAvg) {
   const nomKey = getNominalKey(nominal);
   const caps = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
-
   if (rarityScore >= 5) {
-    // Legendary — без hard cap, но с разумна граница
-    const avg  = Math.max(baseAvg, caps.rare);
+    const avg = Math.max(baseAvg, caps.rare);
     return { low: parseFloat((avg * 0.6).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.5).toFixed(2)) };
   }
-
-  const maxVal = rarityScore === 4 ? caps.rare :
-                 rarityScore === 3 ? caps.uncommon : caps.common;
-
-  const avg  = Math.min(baseAvg || maxVal * 0.4, maxVal);
-  return {
-    low:  parseFloat((avg * 0.6).toFixed(2)),
-    avg:  parseFloat(avg.toFixed(2)),
-    high: parseFloat((avg * 1.4).toFixed(2))
-  };
+  const maxVal = rarityScore === 4 ? caps.rare : rarityScore === 3 ? caps.uncommon : caps.common;
+  const avg = Math.min(baseAvg || maxVal * 0.4, maxVal);
+  return { low: parseFloat((avg * 0.6).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.4).toFixed(2)) };
 }
 
-// ── 3 нива confidence ─────────────────────────────────────────
 function calcConfidences(identityConf, legendaryMatch, rarityScore, nomKey) {
   const identity = Math.round((identityConf / 5) * 100);
   const match = legendaryMatch ? 95 : (rarityScore <= 2 ? 70 : 55);
   const knownNominal = nomKey !== 'default';
   const value = legendaryMatch ? 90 :
     (rarityScore <= 2 && knownNominal) ? 75 :
-    rarityScore <= 2 ? 60 :
-    rarityScore === 3 ? 50 : 40;
+    rarityScore <= 2 ? 60 : rarityScore === 3 ? 50 : 40;
   return { identity, match, value };
 }
 
-// ── Google Vision ─────────────────────────────────────────────
 async function callGoogleVision(imageBase64) {
   if (!GOOGLE_VISION_KEY) return null;
   try {
@@ -262,16 +203,13 @@ async function callGoogleVision(imageBase64) {
     if (!result) return null;
     return {
       ocrText: result.fullTextAnnotation?.text || '',
-      webLabels: (result.webDetection?.webEntities || [])
-        .filter(e => e.score > 0.5).map(e => e.description).filter(Boolean).slice(0, 8),
+      webLabels: (result.webDetection?.webEntities || []).filter(e => e.score > 0.5).map(e => e.description).filter(Boolean).slice(0, 8),
       bestGuess: result.webDetection?.bestGuessLabels?.[0]?.label || ''
     };
   } catch (err) { console.error('Vision error:', err.message); return null; }
 }
 
-function calcScore(rarity, condition) {
-  return Math.round((rarity * 0.7 + condition * 0.3) * 20);
-}
+function calcScore(rarity, condition) { return Math.round((rarity * 0.7 + condition * 0.3) * 20); }
 
 function stableId(coin, fallback) {
   if (coin.id) return coin.id;
@@ -284,9 +222,10 @@ function stableId(coin, fallback) {
 // ══════════════════════════════════════════════════════════════
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v205', version: 'v205' }));
 
-// ── FEEDBACK endpoint ──────────────────────────────────────
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v206', version: 'v206' }));
+
+// ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
   try {
     const { type, message, lang, level, totalScanned, isPremium, timestamp } = req.body;
@@ -296,16 +235,18 @@ app.post('/feedback', async (req, res) => {
     const label = { idea: 'IDEA', bug: 'BUG', feature: 'FEATURE' }[type] || type.toUpperCase();
     const langLabel = { bg: '🇧🇬', en: '🇬🇧', ru: '🇷🇺', tr: '🇹🇷' }[lang] || lang;
 
-    // Log
     console.log(`[FEEDBACK] ${emoji} ${label} | Lv${level} | ${totalScanned} scans | ${langLabel} | Premium:${isPremium}`);
     console.log(`[FEEDBACK] ${message}`);
 
-    // Email
     if (process.env.FEEDBACK_EMAIL_USER && process.env.FEEDBACK_EMAIL_PASS) {
+      const mailer = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.FEEDBACK_EMAIL_USER, pass: process.env.FEEDBACK_EMAIL_PASS },
+      });
       await mailer.sendMail({
         from: `"TreasureScan Vault" <${process.env.FEEDBACK_EMAIL_USER}>`,
-        to: 'treasurescancoinscanner@gmail.com',
-        subject: `${emoji} [${label}] TreasureScan Feedback — Lv${level} ${langLabel}`,
+        to: process.env.FEEDBACK_EMAIL_TO || process.env.FEEDBACK_EMAIL_USER,
+        subject: `${emoji} [${label}] TreasureScan — Lv${level} ${langLabel}`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;background:#0D0900;color:#D4AF37;padding:24px;border-radius:12px;border:1px solid #B8860B">
             <h2 style="margin:0 0 8px">${emoji} ${label}</h2>
@@ -322,17 +263,17 @@ app.post('/feedback', async (req, res) => {
           </div>
         `,
       });
-      console.log('[FEEDBACK] Email sent successfully');
+      console.log('[FEEDBACK] Email sent');
     }
 
     res.json({ success: true, received: true });
   } catch (err) {
     console.error('Feedback error:', err.message);
-    // Връщаме success на клиента дори при email грешка — не искаме да тревожим потребителя
     res.json({ success: true, received: true });
   }
 });
 
+// ── ANALYZE ───────────────────────────────────────────────────
 app.post('/analyze', async (req, res) => {
   try {
     const { imageBase64, mediaType = 'image/jpeg', bothSides, backImageBase64, language = 'bg' } = req.body;
@@ -341,9 +282,7 @@ app.post('/analyze', async (req, res) => {
     const selectedLang = getLang(language);
     const visionData = await callGoogleVision(imageBase64);
 
-    const userContent = [
-      { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } }
-    ];
+    const userContent = [{ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } }];
     if (bothSides && backImageBase64) {
       userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: backImageBase64 } });
     }
@@ -366,22 +305,18 @@ CRITICAL RULES FOR NOMINAL:
 - NEVER guess the nominal — READ it from the coin
 
 CRITICAL RULES FOR COUNTRY:
-- ONLY state country if you can READ it explicitly on the coin (text, inscription, cyrillic/latin name)
-- Bulgarian coins: MUST see "БЪЛГАРИЯ", "лв", "ст", "BGN" — design alone is NOT enough
-- Euro coins: ONLY identify country if you see explicit country name/inscription, NOT just design style
-- Brandenburg gate, Marianne, etc. = design hint only — set country_confidence = "low" if only design clue
-- If you cannot read the country from the coin text → set country to null and country_confidence = "none"
-- NEVER guess country from design alone when single side shown
+- ONLY state country if you can READ it explicitly on the coin
+- Bulgarian coins: MUST see "БЪЛГАРИЯ", "лв", "ст", "BGN"
+- Euro coins: ONLY identify country if you see explicit country name/inscription
+- If you cannot read the country → set country to null and country_confidence = "none"
 
 CRITICAL RULES FOR YEAR:
 - Find 4-digit number (1800-2026) on the coin
-- If OCR provides year → use it
 - Do NOT confuse denomination numbers with year
 
-If a coin:
 {
   "is_coin": true,
-  "name": "Exact name with correct nominal (e.g. '20 Euro Cent Germany 2002', '50 Stotinki Bulgaria 1999')",
+  "name": "Exact name with correct nominal",
   "identity_confidence": 1-5,
   "rarity_score": 1-5,
   "condition_score": 1-5,
@@ -389,9 +324,9 @@ If a coin:
   "visible_side": "obverse|reverse|unknown",
   "country_confidence": "high|medium|low|none",
   "details": {
-    "country": "Country in English ONLY if explicitly readable on coin, else null",
+    "country": "Country in English ONLY if explicitly readable, else null",
     "year": "4-digit year as string",
-    "nominal": "EXACT face value with unit (e.g. '20 cent', '2 euro', '50 stotinki', '1 lev')",
+    "nominal": "EXACT face value with unit",
     "metal": "Composition",
     "history": "2-3 sentences in ${selectedLang}",
     "diameter": "mm or empty",
@@ -406,14 +341,8 @@ If a coin:
   }
 }
 
-RARITY (strict):
-1=standard circulation millions minted (most euro cents, common coins)
-2=less common 10M-100M
-3=commemorative limited under 10M
-4=rare/error/proof under 1M
-5=ONLY legendary under 100k or museum piece
-
-CONFIDENCE: 5=crystal clear all text readable 4=good 3=moderate 2=poor image 1=very uncertain
+RARITY: 1=standard circulation 2=less common 3=commemorative 4=rare/error/proof 5=legendary under 100k
+CONFIDENCE: 5=crystal clear 4=good 3=moderate 2=poor 1=very uncertain
 
 If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
 
@@ -429,80 +358,44 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     let coinData;
     try {
       coinData = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-    } catch {
-      return res.status(500).json({ error: 'AI parse error', raw });
-    }
+    } catch { return res.status(500).json({ error: 'AI parse error', raw }); }
 
-    if (!coinData.is_coin) {
-      return res.json({ success: true, data: { is_coin: false, reason: coinData.reason || 'not_coin' } });
-    }
+    if (!coinData.is_coin) return res.json({ success: true, data: { is_coin: false, reason: coinData.reason || 'not_coin' } });
 
     const rarity    = Math.min(5, Math.max(1, coinData.rarity_score || 1));
     const condition = Math.min(5, Math.max(1, coinData.condition_score || 3));
     const identConf = Math.min(5, Math.max(1, coinData.identity_confidence || 3));
     const nominal   = coinData.details?.nominal || '';
     const year      = coinData.details?.year || '';
-    const visibleSide      = coinData.visible_side || 'unknown';
-    const countryConfRaw   = coinData.country_confidence || 'none';
-    const isBothSides      = bothSides && backImageBase64;
+    const visibleSide    = coinData.visible_side || 'unknown';
+    const countryConfRaw = coinData.country_confidence || 'none';
+    const isBothSides    = bothSides && backImageBase64;
 
-    // ── STRICT COUNTRY LOGIC ───────────────────────────────────
-    // Country се показва САМО ако е прочетена от монетата, не позната
     const countryConfident = countryConfRaw === 'high' || countryConfRaw === 'medium';
     const rawCountry = coinData.details?.country || null;
-    // Ако само гръб/reverse и country confidence не е high → скриваме country
     const country = (rawCountry && countryConfident) ? rawCountry : null;
 
-    // ── STRICT VALUE LOGIC ─────────────────────────────────────
-    // Стойност само ако: bothSides ИЛИ identConf >= 4 И country е известна
-    const canShowValue = isBothSides
-      ? identConf >= 2
-      : (identConf >= 4 && countryConfident && !!rawCountry);
+    const canShowValue = isBothSides ? identConf >= 2 : (identConf >= 4 && countryConfident && !!rawCountry);
 
-    // DB lookup
     const legendary  = matchLegendary(coinData.name);
     const verified   = !legendary ? lookupVerified(country || rawCountry || '', nominal, year, coinData.name) : null;
     const fingerprint = normalizeFingerprint(country || rawCountry || '', nominal, year);
     const nomKey     = getNominalKey(nominal);
     const caps       = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
 
-    // Market valuation — приоритет: legendary → verified → ai_capped
     let market, valueSource;
-    if (!canShowValue) {
-      // Недостатъчно info за стойност — само една страна с ниска увереност
-      market = { low: 0, avg: 0, high: 0 };
-      valueSource = 'insufficient_data';
-    } else if (legendary) {
-      market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high };
-      valueSource = 'legendary_verified';
-    } else if (verified) {
-      // Верифициран запис от coins_verified.json
-      market = {
-        low: verified.market.low,
-        avg: verified.market.avg,
-        high: verified.market.high
-      };
-      valueSource = 'verified_database';
-    } else if (identConf <= 2) {
-      market = { low: 0, avg: 0, high: 0 };
-      valueSource = 'uncertain';
-    } else {
-      const baseAvg = rarity >= 5 ? caps.rare * 2 :
-                      rarity === 4 ? caps.rare * 0.6 :
-                      rarity === 3 ? caps.uncommon * 0.5 :
-                      rarity === 2 ? caps.common * 0.7 :
-                                     caps.common * 0.35;
-      market = safeValuation(rarity, nominal, baseAvg);
-      valueSource = 'ai_capped';
+    if (!canShowValue) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'insufficient_data'; }
+    else if (legendary) { market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high }; valueSource = 'legendary_verified'; }
+    else if (verified)  { market = { low: verified.market.low, avg: verified.market.avg, high: verified.market.high }; valueSource = 'verified_database'; }
+    else if (identConf <= 2) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'uncertain'; }
+    else {
+      const baseAvg = rarity >= 5 ? caps.rare * 2 : rarity === 4 ? caps.rare * 0.6 : rarity === 3 ? caps.uncommon * 0.5 : rarity === 2 ? caps.common * 0.7 : caps.common * 0.35;
+      market = safeValuation(rarity, nominal, baseAvg); valueSource = 'ai_capped';
     }
 
     const confidences = calcConfidences(identConf, legendary, rarity, nomKey);
     const fmt = v => v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v).toString();
-    const estimatedValue = valueSource === 'insufficient_data'
-      ? 'scan_both_sides'
-      : valueSource === 'uncertain' ? '?'
-      : market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
-
+    const estimatedValue = valueSource === 'insufficient_data' ? 'scan_both_sides' : valueSource === 'uncertain' ? '?' : market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
     const id = stableId(coinData, `coin_${Date.now()}`);
 
     const result = {
@@ -511,24 +404,13 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
       score: calcScore(rarity, condition), is_rare: rarity >= 4,
       confidence: identConf,
       confidence_levels: {
-        identity: confidences.identity,
-        match: confidences.match,
-        value: confidences.value,
-        label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' :
-               valueSource === 'uncertain' ? 'uncertain' :
-               confidences.value >= 75 ? 'estimated' : 'low_confidence'
+        identity: confidences.identity, match: confidences.match, value: confidences.value,
+        label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' : valueSource === 'uncertain' ? 'uncertain' : confidences.value >= 75 ? 'estimated' : 'low_confidence'
       },
-      market, estimated_value: estimatedValue, value_source: valueSource,
-      fingerprint,
+      market, estimated_value: estimatedValue, value_source: valueSource, fingerprint,
       legendary_verified: !!legendary, legendary_id: legendary?.id || null,
-      details: {
-        ...coinData.details,
-        country: country,              // null ако не е прочетена с увереност
-        country_raw: rawCountry,       // оригиналния AI отговор за debug
-        coin_type: coinData.coin_type || 'circulation'
-      },
-      country_confidence: countryConfRaw,
-      visible_side: visibleSide,
+      details: { ...coinData.details, country, country_raw: rawCountry, coin_type: coinData.coin_type || 'circulation' },
+      country_confidence: countryConfRaw, visible_side: visibleSide,
       deep: coinData.deep || {},
       both_sides_analyzed: isBothSides,
       value_requires_both_sides: !canShowValue && !isBothSides,
@@ -543,6 +425,7 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
   }
 });
 
+// ── ANALYZE MULTIPLE ──────────────────────────────────────────
 app.post('/analyze-multiple', async (req, res) => {
   try {
     const { imageBase64, mediaType = 'image/jpeg', language = 'bg' } = req.body;
@@ -553,11 +436,9 @@ app.post('/analyze-multiple', async (req, res) => {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-          { type: 'text', text: `Return ONLY valid JSON array. No markdown.
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+        { type: 'text', text: `Return ONLY valid JSON array. No markdown.
 
 Identify ALL coins visible. IDENTIFICATION ONLY — no prices.
 READ each coin's number carefully before identifying nominal.
@@ -571,7 +452,7 @@ READ each coin's number carefully before identifying nominal.
   "details": {
     "country": "Country in English",
     "year": "4-digit year",
-    "nominal": "EXACT face value (e.g. '20 cent', '50 stotinki', '2 euro')",
+    "nominal": "EXACT face value",
     "metal": "Metal",
     "history": "2 sentences in ${selectedLang}"
   },
@@ -581,8 +462,7 @@ READ each coin's number carefully before identifying nominal.
 NOMINAL RULES: Read the number on each coin. 20=20cent, 50=50cent/stotinki, 2=2euro.
 RARITY: 1=common circulation, 2=less common, 3=commemorative, 4=rare/error, 5=legendary
 Most coins are rarity 1-2. Be CONSERVATIVE.` }
-        ]
-      }]
+      ]}]
     });
 
     const raw = response.content[0].text.trim();
@@ -591,9 +471,7 @@ Most coins are rarity 1-2. Be CONSERVATIVE.` }
       coins = JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
       if (!Array.isArray(coins)) coins = [coins];
       if (coins.length > 15) coins = coins.slice(0, 15);
-    } catch {
-      return res.status(500).json({ error: 'AI parse error', raw });
-    }
+    } catch { return res.status(500).json({ error: 'AI parse error', raw }); }
 
     const seen = {};
     const enriched = coins.map((coin, i) => {
@@ -612,42 +490,27 @@ Most coins are rarity 1-2. Be CONSERVATIVE.` }
       const caps        = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
 
       let market, valueSource;
-      if (legendary) {
-        market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high };
-        valueSource = 'legendary_verified';
-      } else if (verified) {
-        market = { low: verified.market.low, avg: verified.market.avg, high: verified.market.high };
-        valueSource = 'verified_database';
-      } else if (identConf <= 2) {
-        market = { low: 0, avg: 0, high: 0 };
-        valueSource = 'uncertain';
-      } else {
-        const baseAvg = rarity >= 5 ? caps.rare * 2 :
-                        rarity === 4 ? caps.rare * 0.6 :
-                        rarity === 3 ? caps.uncommon * 0.5 :
-                        rarity === 2 ? caps.common * 0.7 :
-                                       caps.common * 0.35;
-        market = safeValuation(rarity, nominal, baseAvg);
-        valueSource = 'ai_capped';
+      if (legendary) { market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high }; valueSource = 'legendary_verified'; }
+      else if (verified) { market = { low: verified.market.low, avg: verified.market.avg, high: verified.market.high }; valueSource = 'verified_database'; }
+      else if (identConf <= 2) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'uncertain'; }
+      else {
+        const baseAvg = rarity >= 5 ? caps.rare * 2 : rarity === 4 ? caps.rare * 0.6 : rarity === 3 ? caps.uncommon * 0.5 : rarity === 2 ? caps.common * 0.7 : caps.common * 0.35;
+        market = safeValuation(rarity, nominal, baseAvg); valueSource = 'ai_capped';
       }
 
       const confidences = calcConfidences(identConf, legendary, rarity, nomKey);
       const fmt = v => v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v).toString();
-      const estimatedValue = valueSource === 'uncertain' ? '?' :
-        market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
+      const estimatedValue = valueSource === 'uncertain' ? '?' : market.low > 0 ? `${fmt(market.low)}–${fmt(market.high)} EUR` : '';
 
       const result = {
         id: stableId(coin, `coin_${i}`), name: coin.name || 'Unknown',
         coin_x: Math.min(0.95, Math.max(0.05, coin.coin_x || 0.5)),
         coin_y: Math.min(0.95, Math.max(0.05, coin.coin_y || 0.5)),
         rarity_score: rarity, condition_score: condition,
-        score: calcScore(rarity, condition), is_rare: rarity >= 4,
-        confidence: identConf,
+        score: calcScore(rarity, condition), is_rare: rarity >= 4, confidence: identConf,
         confidence_levels: {
           identity: confidences.identity, match: confidences.match, value: confidences.value,
-          label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' :
-                 valueSource === 'uncertain' ? 'uncertain' :
-                 confidences.value >= 75 ? 'estimated' : 'low_confidence'
+          label: (valueSource === 'legendary_verified' || valueSource === 'verified_database') ? 'verified' : valueSource === 'uncertain' ? 'uncertain' : confidences.value >= 75 ? 'estimated' : 'low_confidence'
         },
         market, estimated_value: estimatedValue, value_source: valueSource,
         fingerprint, legendary_verified: !!legendary, legendary_id: legendary?.id || null,
@@ -661,21 +524,17 @@ Most coins are rarity 1-2. Be CONSERVATIVE.` }
 
     enriched.sort((a, b) => b.score - a.score);
 
-    // Summary — с per-coin caps
     let totalLow = 0, totalHigh = 0;
     for (const coin of enriched) {
       const nomKey = getNominalKey(coin.details?.nominal || '');
       const caps = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
-      const maxH = coin.rarity_score <= 1 ? caps.common :
-                   coin.rarity_score === 2 ? caps.uncommon * 0.5 :
-                   coin.rarity_score === 3 ? caps.uncommon : caps.rare;
+      const maxH = coin.rarity_score <= 1 ? caps.common : coin.rarity_score === 2 ? caps.uncommon * 0.5 : coin.rarity_score === 3 ? caps.uncommon : caps.rare;
       const high = Math.min(coin.market?.high || 0, maxH);
-      const low  = Math.min(coin.market?.low || 0, high * 0.6);
-      totalLow += low; totalHigh += high;
+      totalLow += Math.min(coin.market?.low || 0, high * 0.6);
+      totalHigh += high;
     }
 
     const fmt = v => v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v).toString();
-
     res.json({
       success: true, data: enriched,
       top: enriched.slice(0, 2), bulk: enriched.slice(2),
@@ -693,6 +552,7 @@ Most coins are rarity 1-2. Be CONSERVATIVE.` }
   }
 });
 
+// ── VALIDATE CODE ─────────────────────────────────────────────
 app.post('/validate-code', (req, res) => {
   const { code } = req.body;
   const input = (code || '').trim().toUpperCase();
@@ -720,50 +580,5 @@ app.post('/validate-code', (req, res) => {
   res.json({ valid: false, type: 'invalid' });
 });
 
-
-app.post('/feedback', async (req, res) => {
-  try {
-    const { type, message, lang, level, totalScanned, isPremium, timestamp } = req.body;
-    if (!message || !type) return res.status(400).json({ error: 'Missing fields' });
-
-    const emailUser = process.env.FEEDBACK_EMAIL_USER;
-    const emailPass = process.env.FEEDBACK_EMAIL_PASS;
-    const emailTo   = process.env.FEEDBACK_EMAIL_TO || emailUser;
-
-    const typeEmoji = { idea: '💬', bug: '🐛', feature: '⭐' }[type] || '📝';
-    const subject = `${typeEmoji} TreasureScan Feedback: ${type.toUpperCase()}`;
-    const body = `
-Type: ${type}
-Message: ${message}
----
-Lang: ${lang || 'unknown'}
-Level: ${level || 0}
-Total Scanned: ${totalScanned || 0}
-Premium: ${isPremium ? 'Yes' : 'No'}
-Time: ${timestamp || new Date().toISOString()}
-    `.trim();
-
-    if (emailUser && emailPass) {
-      const mailer = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: emailUser, pass: emailPass },
-      });
-      await mailer.sendMail({
-        from: emailUser,
-        to: emailTo,
-        subject,
-        text: body,
-      });
-    } else {
-      console.log('FEEDBACK (no email configured):', { type, message, lang, level });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error('/feedback error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v201 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v206 running on port ${PORT}`));
