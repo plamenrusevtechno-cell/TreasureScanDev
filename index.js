@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v206
-// Updated: 2026-06-01 22:30
-// Hybrid Pipeline: AI (eyes) + Database (brain)
+// TreasureScan Backend — v207
+// Updated: 2026-06-02 14:30
+// Fixed: feedback email via Resend API (SMTP blocked on Render free tier)
 // ═══════════════════════════════════════════════════════════════
 
 const express = require('express');
@@ -223,7 +223,7 @@ function stableId(coin, fallback) {
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v206', version: 'v206' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v207', version: 'v207' }));
 
 // ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
@@ -238,7 +238,43 @@ app.post('/feedback', async (req, res) => {
     console.log(`[FEEDBACK] ${emoji} ${label} | Lv${level} | ${totalScanned} scans | ${langLabel} | Premium:${isPremium}`);
     console.log(`[FEEDBACK] ${message}`);
 
-    if (process.env.FEEDBACK_EMAIL_USER && process.env.FEEDBACK_EMAIL_PASS) {
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;background:#0D0900;color:#D4AF37;padding:24px;border-radius:12px;border:1px solid #B8860B">
+        <h2 style="margin:0 0 8px">${emoji} ${label}</h2>
+        <hr style="border-color:#B8860B33;margin:12px 0"/>
+        <p style="color:#fff;font-size:16px;line-height:1.6;white-space:pre-wrap">${message}</p>
+        <hr style="border-color:#B8860B33;margin:12px 0"/>
+        <table style="color:#888;font-size:12px;width:100%">
+          <tr><td>🎮 Level</td><td><b style="color:#D4AF37">Lv${level}</b></td></tr>
+          <tr><td>🔍 Scans</td><td><b style="color:#D4AF37">${totalScanned}</b></td></tr>
+          <tr><td>💎 Premium</td><td><b style="color:#D4AF37">${isPremium ? 'Yes' : 'No'}</b></td></tr>
+          <tr><td>🌍 Lang</td><td><b style="color:#D4AF37">${langLabel} ${lang}</b></td></tr>
+          <tr><td>🕐 Time</td><td><b style="color:#D4AF37">${timestamp}</b></td></tr>
+        </table>
+      </div>
+    `;
+
+    // ── Resend — работи на Render (HTTPS, не SMTP) ────────────
+    if (process.env.RESEND_API_KEY) {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'TreasureScan <onboarding@resend.dev>',
+          to: [process.env.FEEDBACK_EMAIL_TO || process.env.FEEDBACK_EMAIL_USER],
+          subject: `${emoji} [${label}] TreasureScan — Lv${level} ${langLabel}`,
+          html,
+        }),
+      });
+      const data = await r.json();
+      if (r.ok) console.log('[FEEDBACK] ✅ Email sent via Resend:', data.id);
+      else console.error('[FEEDBACK] ❌ Resend error:', JSON.stringify(data));
+    }
+    // ── Gmail SMTP fallback ───────────────────────────────────
+    else if (process.env.FEEDBACK_EMAIL_USER && process.env.FEEDBACK_EMAIL_PASS) {
       const mailer = nodemailer.createTransport({
         service: 'gmail',
         auth: { user: process.env.FEEDBACK_EMAIL_USER, pass: process.env.FEEDBACK_EMAIL_PASS },
@@ -247,23 +283,11 @@ app.post('/feedback', async (req, res) => {
         from: `"TreasureScan Vault" <${process.env.FEEDBACK_EMAIL_USER}>`,
         to: process.env.FEEDBACK_EMAIL_TO || process.env.FEEDBACK_EMAIL_USER,
         subject: `${emoji} [${label}] TreasureScan — Lv${level} ${langLabel}`,
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:600px;background:#0D0900;color:#D4AF37;padding:24px;border-radius:12px;border:1px solid #B8860B">
-            <h2 style="margin:0 0 8px">${emoji} ${label}</h2>
-            <hr style="border-color:#B8860B33;margin:12px 0"/>
-            <p style="color:#fff;font-size:16px;line-height:1.6;white-space:pre-wrap">${message}</p>
-            <hr style="border-color:#B8860B33;margin:12px 0"/>
-            <table style="color:#888;font-size:12px;width:100%">
-              <tr><td>🎮 Level</td><td><b style="color:#D4AF37">Lv${level}</b></td></tr>
-              <tr><td>🔍 Scans</td><td><b style="color:#D4AF37">${totalScanned}</b></td></tr>
-              <tr><td>💎 Premium</td><td><b style="color:#D4AF37">${isPremium ? 'Yes' : 'No'}</b></td></tr>
-              <tr><td>🌍 Lang</td><td><b style="color:#D4AF37">${langLabel} ${lang}</b></td></tr>
-              <tr><td>🕐 Time</td><td><b style="color:#D4AF37">${timestamp}</b></td></tr>
-            </table>
-          </div>
-        `,
+        html,
       });
-      console.log('[FEEDBACK] Email sent');
+      console.log('[FEEDBACK] ✅ Email sent via Gmail');
+    } else {
+      console.warn('[FEEDBACK] ⚠️ No email provider configured');
     }
 
     res.json({ success: true, received: true });
@@ -581,4 +605,4 @@ app.post('/validate-code', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v206 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v207 running on port ${PORT}`));
