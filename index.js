@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v207
-// Updated: 2026-06-02 14:30
-// Fixed: feedback email via Resend API (SMTP blocked on Render free tier)
+// TreasureScan Backend — v208
+// Updated: 2026-06-02 08:00
+// Fixed: nominal floor — монета не може да струва по-малко от номинала си
 // ═══════════════════════════════════════════════════════════════
 
 const express = require('express');
@@ -168,16 +168,28 @@ function getNominalKey(nominal) {
   return 'default';
 }
 
+// Nominal value floor — монетата не може да струва по-малко от номинала си
+const NOMINAL_FLOOR = {
+  '1_cent': 0.01, '2_cent': 0.02, '5_cent': 0.05,
+  '10_cent': 0.10, '20_cent': 0.20, '50_cent': 0.50,
+  '1_euro': 1.00, '2_euro': 2.00,
+  '1_st': 0.005, '2_st': 0.01, '5_st': 0.025,
+  '10_st': 0.05, '20_st': 0.10, '50_st': 0.25,
+  '1_bgn': 0.50, '2_bgn': 1.00,
+};
+
 function safeValuation(rarityScore, nominal, baseAvg) {
   const nomKey = getNominalKey(nominal);
   const caps = NOMINAL_CAPS[nomKey] || NOMINAL_CAPS['default'];
+  const floor = NOMINAL_FLOOR[nomKey] || 0;
+
   if (rarityScore >= 5) {
-    const avg = Math.max(baseAvg, caps.rare);
-    return { low: parseFloat((avg * 0.6).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.5).toFixed(2)) };
+    const avg = Math.max(baseAvg, caps.rare, floor);
+    return { low: parseFloat((Math.max(avg * 0.6, floor)).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.5).toFixed(2)) };
   }
   const maxVal = rarityScore === 4 ? caps.rare : rarityScore === 3 ? caps.uncommon : caps.common;
-  const avg = Math.min(baseAvg || maxVal * 0.4, maxVal);
-  return { low: parseFloat((avg * 0.6).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.4).toFixed(2)) };
+  const avg = Math.max(Math.min(baseAvg || maxVal * 0.4, maxVal), floor);
+  return { low: parseFloat((Math.max(avg * 0.6, floor)).toFixed(2)), avg: parseFloat(avg.toFixed(2)), high: parseFloat((avg * 1.4).toFixed(2)) };
 }
 
 function calcConfidences(identityConf, legendaryMatch, rarityScore, nomKey) {
@@ -410,7 +422,15 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     let market, valueSource;
     if (!canShowValue) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'insufficient_data'; }
     else if (legendary) { market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high }; valueSource = 'legendary_verified'; }
-    else if (verified)  { market = { low: verified.market.low, avg: verified.market.avg, high: verified.market.high }; valueSource = 'verified_database'; }
+    else if (verified)  {
+      const floor = NOMINAL_FLOOR[nomKey] || 0;
+      market = {
+        low:  parseFloat(Math.max(verified.market.low,  floor).toFixed(2)),
+        avg:  parseFloat(Math.max(verified.market.avg,  floor).toFixed(2)),
+        high: parseFloat(Math.max(verified.market.high, floor).toFixed(2)),
+      };
+      valueSource = 'verified_database';
+    }
     else if (identConf <= 2) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'uncertain'; }
     else {
       const baseAvg = rarity >= 5 ? caps.rare * 2 : rarity === 4 ? caps.rare * 0.6 : rarity === 3 ? caps.uncommon * 0.5 : rarity === 2 ? caps.common * 0.7 : caps.common * 0.35;
