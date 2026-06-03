@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v208
-// Updated: 2026-06-02 08:00
+// TreasureScan Backend — v208.2
+// Updated: 2026-06-03 08:00
 // Fixed: nominal floor — монета не може да струва по-малко от номинала си
 // ═══════════════════════════════════════════════════════════════
 
@@ -331,14 +331,26 @@ app.post('/analyze', async (req, res) => {
 
 TASK: IDENTIFY the coin with maximum precision. Read ALL visible text and numbers carefully.
 
-CRITICAL RULES FOR NOMINAL:
-- READ the number on the coin FIRST before anything else
-- If you see "20" → nominal is "20 cent" or "20 euro cent" (NOT 5, NOT 50)
-- If you see "50" with "CT" or "CENT" → "50 cent" (NOT stotinki unless Bulgarian)
-- If you see "стотинки" or "СТ" → Bulgarian stotinki
-- If you see stars around the coin edge → likely Euro coin
-- If OCR shows a number → USE THAT NUMBER for nominal
+CRITICAL RULES FOR NOMINAL — READ CAREFULLY:
+- STEP 1: Find the denomination number on the coin visually
+- STEP 2: Read it EXACTLY — do NOT confuse: 2↔5, 1↔7, 6↔9, 50↔5
+- STEP 3: Find the unit (стотинки/лв/cent/euro/etc)
+- STEP 4: Combine ONLY those two — never mix numbers from different parts of coin
+
+BULGARIAN STOTINKI — valid values ONLY: 1, 2, 5, 10, 20, 50 стотинки
+- "5" + "СТОТИНКИ" = "5 стотинки" — NEVER "2 стотинки"
+- "2" + "СТОТИНКИ" = "2 стотинки" — NEVER "5 стотинки"
+- If OCR says "2" but coin clearly shows "5" → use "5"
+
+EURO CENTS — valid values ONLY: 1, 2, 5, 10, 20, 50 cent, 1 euro, 2 euro
+- "5" + "CENT" = "5 cent" — NEVER "2 cent"
+- "20" + "CENT" = "20 cent" — NEVER "2 cent" or "50 cent"
+- If you see stars around edge → Euro coin
+
+GENERAL:
 - NEVER guess the nominal — READ it from the coin
+- If OCR shows wrong digit but image is clear → TRUST THE IMAGE
+- Do NOT confuse denomination number with year
 
 CRITICAL RULES FOR COUNTRY:
 - ONLY state country if you can READ it explicitly on the coin
