@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v208.2
-// Updated: 2026-06-03 08:00
+// TreasureScan Backend — v208.8
+// Updated: 2026-06-03 23:49
 // Fixed: nominal floor — монета не може да струва по-малко от номинала си
 // ═══════════════════════════════════════════════════════════════
 
@@ -157,12 +157,12 @@ function getNominalKey(nominal) {
   if (/50\s*(цент|cent)/i.test(n)) return '50_cent';
   if (/1\s*(евро|euro)/i.test(n)) return '1_euro';
   if (/2\s*(евро|euro)/i.test(n)) return '2_euro';
-  if (/1\s*стотин/i.test(n)) return '1_st';
-  if (/2\s*стотин/i.test(n)) return '2_st';
-  if (/5\s*стотин/i.test(n)) return '5_st';
-  if (/10\s*стотин/i.test(n)) return '10_st';
-  if (/20\s*стотин/i.test(n)) return '20_st';
-  if (/50\s*стотин/i.test(n)) return '50_st';
+  if (/1\s*(стотин|stotink)/i.test(n)) return '1_st';
+  if (/2\s*(стотин|stotink)/i.test(n)) return '2_st';
+  if (/5\s*(стотин|stotink)/i.test(n)) return '5_st';
+  if (/10\s*(стотин|stotink)/i.test(n)) return '10_st';
+  if (/20\s*(стотин|stotink)/i.test(n)) return '20_st';
+  if (/50\s*(стотин|stotink)/i.test(n)) return '50_st';
   if (/1\s*лев/i.test(n)) return '1_bgn';
   if (/2\s*лев/i.test(n)) return '2_bgn';
   return 'default';
@@ -434,6 +434,7 @@ If NOT a coin: {"is_coin": false, "reason": "unclear"}`;
     let market, valueSource;
     if (!canShowValue) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'insufficient_data'; }
     else if (legendary) { market = { low: legendary.market.low, avg: legendary.market.avg, high: legendary.market.high }; valueSource = 'legendary_verified'; }
+    else if (/stotink|стотин/i.test(nominal) && rarity <= 2) { market = { low: 0, avg: 0, high: 0 }; valueSource = 'insufficient_data'; }
     else if (verified)  {
       const floor = NOMINAL_FLOOR[nomKey] || 0;
       market = {
