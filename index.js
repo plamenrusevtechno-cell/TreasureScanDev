@@ -235,7 +235,7 @@ function stableId(coin, fallback) {
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v207', version: 'v207' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v208.9', version: 'v208.9', updated: '2026-06-08' }));
 
 // ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
