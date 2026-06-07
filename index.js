@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v208.8
-// Updated: 2026-06-03 23:49
-// Fixed: nominal floor — монета не може да струва по-малко от номинала си
+// TreasureScan Backend — v208.9
+// Updated: 2026-06-08 00:30
+// Fixed: commemorative coin portrait identification (Grace Kelly vs Albert II)
 // ═══════════════════════════════════════════════════════════════
 
 const express = require('express');
@@ -351,6 +351,12 @@ GENERAL:
 - NEVER guess the nominal — READ it from the coin
 - If OCR shows wrong digit but image is clear → TRUST THE IMAGE
 - Do NOT confuse denomination number with year
+
+CRITICAL RULES FOR COMMEMORATIVE COINS:
+- If you see a PORTRAIT on the coin — identify WHO is depicted by reading any inscription near the portrait
+- Monaco 2007: shows Princess Grace Kelly (not Prince Albert II) — inscription "GRACE KELLY" or similar
+- Do NOT assume the current ruler — READ the actual portrait inscription
+- For history field: describe the ACTUAL person/event shown on the coin, not the issuing authority
 
 CRITICAL RULES FOR COUNTRY:
 - ONLY state country if you can READ it explicitly on the coin
