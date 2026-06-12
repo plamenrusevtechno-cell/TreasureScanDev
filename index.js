@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v208.9
-// Updated: 2026-06-08 00:30
+// TreasureScan Backend — v209.9
+// Updated: 2026-06-12 09:30
 // Fixed: commemorative coin portrait identification (Grace Kelly vs Albert II)
 // ═══════════════════════════════════════════════════════════════
 
@@ -235,7 +235,7 @@ function stableId(coin, fallback) {
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v207', version: 'v207' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v209.9', version: 'v209.9' }));
 
 // ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
