@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// TreasureScan Backend — v209.9
-// Updated: 2026-06-12 09:30
+// TreasureScan Backend — v210.0
+// Updated: 2026-06-12 12:30
 // Fixed: commemorative coin portrait identification (Grace Kelly vs Albert II)
+// Fixed: lev/euro currency confusion via stricter currency marker rules
 // ═══════════════════════════════════════════════════════════════
 
 const express = require('express');
@@ -235,7 +236,7 @@ function stableId(coin, fallback) {
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v209.9', version: 'v209.9' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v210.0', version: 'v210.0' }));
 
 // ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
@@ -337,20 +338,39 @@ CRITICAL RULES FOR NOMINAL — READ CAREFULLY:
 - STEP 3: Find the unit (стотинки/лв/cent/euro/etc)
 - STEP 4: Combine ONLY those two — never mix numbers from different parts of coin
 
-BULGARIAN STOTINKI — valid values ONLY: 1, 2, 5, 10, 20, 50 стотинки
-- "5" + "СТОТИНКИ" = "5 стотинки" — NEVER "2 стотинки"
-- "2" + "СТОТИНКИ" = "2 стотинки" — NEVER "5 стотинки"
-- If OCR says "2" but coin clearly shows "5" → use "5"
+═══ CURRENCY IDENTIFICATION — CRITICAL ═══
+NEVER confuse currency by reading only the number. ALWAYS look for currency markers FIRST, then read the number.
 
-EURO CENTS — valid values ONLY: 1, 2, 5, 10, 20, 50 cent, 1 euro, 2 euro
-- "5" + "CENT" = "5 cent" — NEVER "2 cent"
-- "20" + "CENT" = "20 cent" — NEVER "2 cent" or "50 cent"
-- If you see stars around edge → Euro coin
+BULGARIAN LEV (BGN) — markers to look for:
+- Text: "СТОТИНКИ", "СТ.", "ЛЕВА", "ЛВ", "BGN"
+- Coat of arms: Bulgarian lion / "БНБ" / "БЪЛГАРИЯ"
+- Cyrillic script around the rim
+- Valid nominals: 1, 2, 5, 10, 20, 50 стотинки | 1, 2 лева
+- Format output: "5 стотинки" / "1 лев" / "2 лева"
 
-GENERAL:
+EURO (EUR) — markers to look for:
+- Text: "EURO", "EUR", "CENT", "EURO CENT"
+- 12 stars around edge (common side)
+- Country name in Latin script: "DEUTSCHLAND", "ESPAÑA", "FRANCE", "ITALIA", etc.
+- Map of Europe on the common side
+- Valid nominals: 1, 2, 5, 10, 20, 50 cent | 1, 2 euro
+- Format output: "5 cent" / "1 euro" / "2 euro"
+
+DISAMBIGUATION RULES:
+- "1" alone is NOT enough — MUST see "лв"/"стотинка"/"euro"/"cent"
+- Cyrillic text = NEVER euro
+- Latin text + 12 stars = NEVER lev
+- If unsure of currency → set identity_confidence to 1-2 and explain in name
+- If image shows BG inscription + you wrote "евро" → WRONG, redo as лев/стотинка
+- If image shows EURO inscription + you wrote "лев" → WRONG, redo as euro/cent
+
+NOMINAL NUMBER READING:
+- STEP 1: Find currency markers (above)
+- STEP 2: Then read the number — do NOT confuse: 2↔5, 1↔7, 6↔9, 50↔5
+- STEP 3: Combine: "<number> <unit>"
 - NEVER guess the nominal — READ it from the coin
 - If OCR shows wrong digit but image is clear → TRUST THE IMAGE
-- Do NOT confuse denomination number with year
+- Do NOT confuse denomination number with year (4-digit number 1800-2026 is the year)
 
 CRITICAL RULES FOR COMMEMORATIVE COINS:
 - If you see a PORTRAIT on the coin — identify WHO is depicted by reading any inscription near the portrait
@@ -504,7 +524,12 @@ app.post('/analyze-multiple', async (req, res) => {
         { type: 'text', text: `Return ONLY valid JSON array. No markdown.
 
 Identify ALL coins visible. IDENTIFICATION ONLY — no prices.
-READ each coin's number carefully before identifying nominal.
+
+CURRENCY RULES (critical):
+- Cyrillic text + "СТОТИНКИ"/"ЛВ"/"ЛЕВА" = Bulgarian (лев/стотинка), NEVER euro
+- Latin text + 12 stars + "EURO"/"CENT" = Euro, NEVER lev
+- Bulgarian lion or "БЪЛГАРИЯ" = Bulgarian coin
+- READ each coin's currency markers FIRST, then read the number.
 
 [{
   "name": "Exact name with correct nominal",
@@ -658,4 +683,4 @@ cron.schedule('0 20 * * *', () => {
 }, { timezone: 'Europe/Sofia' });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v208.9 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v210.0 running on port ${PORT}`));
