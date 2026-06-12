@@ -235,7 +235,7 @@ function stableId(coin, fallback) {
 // ENDPOINTS
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (_, res) => res.json({ status: 'TreasureScan v208.9', version: 'v208.9', updated: '2026-06-08' }));
+app.get('/', (_, res) => res.json({ status: 'TreasureScan v207', version: 'v207' }));
 
 // ── FEEDBACK ──────────────────────────────────────────────────
 app.post('/feedback', async (req, res) => {
@@ -643,5 +643,19 @@ app.post('/validate-code', (req, res) => {
   res.json({ valid: false, type: 'invalid' });
 });
 
+// ── FCM NOTIFICATIONS ─────────────────────────────────────────
+const notifications = require('./notifications');
+
+app.post('/fcm/register',    notifications.registerToken);
+app.post('/fcm/send',        notifications.sendNotification);
+app.post('/fcm/send-to-all', notifications.sendToAll);
+
+// Scheduled streak warnings — всеки ден в 20:00 Sofia time
+const cron = require('node-cron');
+cron.schedule('0 20 * * *', () => {
+  console.log('[CRON] Running streak warnings...');
+  notifications.sendStreakWarnings();
+}, { timezone: 'Europe/Sofia' });
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`TreasureScan v207 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`TreasureScan v208.9 running on port ${PORT}`));
